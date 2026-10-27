@@ -32,6 +32,8 @@ go run ./cmd/api
 
 A API escuta em `:8080` por padrão. Defina `HTTP_ADDR` para alterar o endereço. A rota `GET /health` retorna `{"status":"ok"}`.
 
+O adaptador PostgreSQL usa GORM. Configure `DATABASE_URL` com a URL de conexão do PostgreSQL. A primeira migração cria apenas a tabela `customers`, que corresponde ao domínio de clientes já implementado. As migrações seguem o formato Goose e podem ser aplicadas com `goose -dir migrations postgres "$DATABASE_URL" up`.
+
 ## Estrutura Go
 
 Esta é a estrutura-alvo; módulos são criados conforme as capacidades forem implementadas. Diretórios compostos usam kebab-case; nomes de pacotes Go não usam hífen.

@@ -6,6 +6,7 @@ const defaultHTTPAddress = ":8080"
 
 type Config struct {
 	HTTPAddress string
+	DatabaseURL string
 }
 
 func Load() Config {
@@ -13,5 +14,8 @@ func Load() Config {
 	if address == "" {
 		address = defaultHTTPAddress
 	}
-	return Config{HTTPAddress: address}
+	return Config{
+		HTTPAddress: address,
+		DatabaseURL: os.Getenv("DATABASE_URL"),
+	}
 }
