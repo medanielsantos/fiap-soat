@@ -24,13 +24,25 @@ Registrar o ciclo de serviço do veículo, da recepção à entrega, gerar orça
 
 ## Executar a API
 
-Requer Go 1.26 ou superior. Inicie o servidor com:
+Requer Go 1.27.3 ou superior. Inicie o servidor com:
 
 ```sh
 go run ./cmd/api
 ```
 
-A API escuta em `:8080` por padrão. Defina `HTTP_ADDR` para alterar o endereço. A rota `GET /health` retorna `{"status":"ok"}`.
+A API escuta na porta `8080` por padrão. Defina `APP_HTTP_PORT` para alterar a porta. A rota `GET /health` retorna `{"status":"ok"}`; as rotas da API usam o prefixo `/api/v1`.
+
+O adaptador PostgreSQL usa GORM. Em desenvolvimento local, copie `.env.example` para `.env` e configure `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` e `DB_PASSWORD`. O arquivo `.env` é carregado automaticamente e ignorado pelo Git. Se `DATABASE_URL` estiver definida no ambiente, ela tem prioridade. Ao executar a API na máquina host, use `DB_HOST=localhost`; em Docker Compose, use o nome do serviço PostgreSQL, como `postgres`. A primeira migração cria apenas a tabela `customers`. Aplique as migrações com `make migrate` ou `go run ./cmd/migrate up`; o comando usa a mesma configuração `.env` da API.
+
+## Clientes
+
+- `POST /api/v1/customers`: cadastra cliente; `document`, `name`, `email` e `phone` são obrigatórios. `status` pode ser omitido e inicia como `active`.
+- `GET /api/v1/customers?page=1&per_page=20`: lista clientes paginados; `per_page` aceita até `100` e a resposta inclui `data`, `pagination` e `links`. Retorna `204` se não houver clientes.
+- `GET /api/v1/customers/{id}`: consulta um cliente.
+- `PUT /api/v1/customers/{id}`: atualiza `document`, `name`, `email`, `phone` e `status` (`active` ou `inactive`).
+- `DELETE /api/v1/customers/{id}`: desativa logicamente o cliente; o registro permanece no banco com `deleted_at` preenchido.
+
+CPF/CNPJ são validados e persistidos somente com dígitos. Nas respostas, o documento é mascarado. Erros seguem `application/problem+json`.
 
 ## Estrutura Go
 
