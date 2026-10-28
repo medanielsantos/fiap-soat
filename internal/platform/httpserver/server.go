@@ -10,7 +10,6 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
-	customerhttp "github.com/medanielsantos/fiap-soat/internal/customer/adapters/in/http"
 	"github.com/medanielsantos/fiap-soat/internal/platform/config"
 )
 
@@ -19,17 +18,15 @@ type Server struct {
 	echo    *echo.Echo
 }
 
-func New(cfg config.Config, customerHandler *customerhttp.Handler) *Server {
-	e := echo.New()
-	e.Use(middleware.Recover())
-	e.GET("/health", func(c *echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
-	})
-	e.Use(middleware.BodyLimit(1 << 20))
-	customerHandler.RegisterRoutes(e.Group("/customers"))
+func New(cfg config.Config, router *Router) *Server {
+	router.engine.Use(middleware.Recover())
+	router.engine.Use(middleware.BodyLimit(1 << 20))
+	router.Register()
 
-	return &Server{address: cfg.HTTPAddress, echo: e}
+	return &Server{address: cfg.HTTPAddress, echo: router.engine}
 }
+
+func NewEngine() *echo.Echo { return echo.New() }
 
 func (s *Server) Run(ctx context.Context) error {
 	routes := s.echo.Router().Routes()

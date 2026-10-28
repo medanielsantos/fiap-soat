@@ -36,7 +36,7 @@ type customerRequest struct {
 }
 
 type customerResponse struct {
-	ID       string                `json:"customer_id"`
+	ID       string                `json:"id"`
 	Document string                `json:"document"`
 	Name     string                `json:"name"`
 	Email    string                `json:"email"`
@@ -63,7 +63,7 @@ func (handler *Handler) Create(c *echo.Context) error {
 	if err != nil {
 		return handleError(c, err)
 	}
-	c.Response().Header().Set(echo.HeaderLocation, "/customers/"+customer.ID())
+	c.Response().Header().Set(echo.HeaderLocation, "/api/v1/customers/"+customer.ID())
 	return c.JSON(http.StatusCreated, responseFromDomain(customer))
 }
 

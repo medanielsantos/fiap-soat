@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var ErrInvalidDocument = errors.New("invalid CPF or CNPJ")
+var ErrInvalidDocument = errors.New("invalid document")
 
 type Document struct {
 	value string

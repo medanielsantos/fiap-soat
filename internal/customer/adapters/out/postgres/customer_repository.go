@@ -112,6 +112,7 @@ type customerRecord struct {
 	Status    string `gorm:"column:status;not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
 func (customerRecord) TableName() string { return "customers" }

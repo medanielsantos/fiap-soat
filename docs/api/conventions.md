@@ -2,7 +2,7 @@
 
 ## Formato
 
-- REST/JSON com prefixo proposto `/api/v1`.
+- REST/JSON com prefixo `/api/v1` para as rotas da API; health check permanece em `/health`.
 - Nomes de propriedades JSON em `snake_case` tanto em requests quanto responses: `customer_id`, `vehicle_id`, `created_at`, `total_in_cents`.
 - Valores monetários usam campos inteiros explicitamente em centavos, como `unit_price_in_cents` e `total_in_cents`.
 - Campos de entrada para CPF/CNPJ podem conter pontuação; o adaptador normaliza para dígitos antes de chamar o caso de uso.

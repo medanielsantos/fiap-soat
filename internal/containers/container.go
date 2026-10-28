@@ -36,6 +36,12 @@ func New() (*dig.Container, error) {
 	if err := container.Provide(customerhttp.NewHandler); err != nil {
 		return nil, err
 	}
+	if err := container.Provide(httpserver.NewEngine); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(httpserver.NewRouter); err != nil {
+		return nil, err
+	}
 	if err := container.Provide(httpserver.New); err != nil {
 		return nil, err
 	}
