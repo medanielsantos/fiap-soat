@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/medanielsantos/fiap-soat/internal/customer/domain"
+	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
 )
 
 var (
@@ -15,7 +16,7 @@ var (
 type CustomerStore interface {
 	Save(context.Context, domain.Customer) error
 	FindByID(context.Context, string) (domain.Customer, error)
-	List(context.Context) ([]domain.Customer, error)
+	List(context.Context, pagination.Params) (pagination.Page[domain.Customer], error)
 	Update(context.Context, domain.Customer) error
 	Delete(context.Context, string) error
 }
@@ -64,8 +65,8 @@ func (service *CustomerService) Get(ctx context.Context, id string) (domain.Cust
 	return service.store.FindByID(ctx, id)
 }
 
-func (service *CustomerService) List(ctx context.Context) ([]domain.Customer, error) {
-	return service.store.List(ctx)
+func (service *CustomerService) List(ctx context.Context, params pagination.Params) (pagination.Page[domain.Customer], error) {
+	return service.store.List(ctx, params)
 }
 
 func (service *CustomerService) Update(ctx context.Context, id string, input CustomerInput) (domain.Customer, error) {

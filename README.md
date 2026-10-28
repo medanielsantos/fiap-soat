@@ -37,7 +37,7 @@ O adaptador PostgreSQL usa GORM. Em desenvolvimento local, copie `.env.example` 
 ## Clientes
 
 - `POST /api/v1/customers`: cadastra cliente; `document`, `name`, `email` e `phone` são obrigatórios. `status` pode ser omitido e inicia como `active`.
-- `GET /api/v1/customers`: lista clientes; retorna `204` se não houver clientes.
+- `GET /api/v1/customers?page=1&per_page=20`: lista clientes paginados; `per_page` aceita até `100` e a resposta inclui `data`, `pagination` e `links`. Retorna `204` se não houver clientes.
 - `GET /api/v1/customers/{id}`: consulta um cliente.
 - `PUT /api/v1/customers/{id}`: atualiza `document`, `name`, `email`, `phone` e `status` (`active` ou `inactive`).
 - `DELETE /api/v1/customers/{id}`: desativa logicamente o cliente; o registro permanece no banco com `deleted_at` preenchido.

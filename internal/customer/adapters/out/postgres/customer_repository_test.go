@@ -7,6 +7,7 @@ import (
 
 	"github.com/medanielsantos/fiap-soat/internal/customer/application"
 	"github.com/medanielsantos/fiap-soat/internal/customer/domain"
+	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
 	postgresdriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -66,12 +67,16 @@ func TestCustomerRepositorySoftDelete(t *testing.T) {
 	if _, err := repository.FindByID(context.Background(), customer.ID()); err != application.ErrCustomerNotFound {
 		t.Errorf("FindByID() after delete error = %v, want %v", err, application.ErrCustomerNotFound)
 	}
-	customers, err := repository.List(context.Background())
+	params, err := pagination.NewParams(1, pagination.DefaultPerPage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	customers, err := repository.List(context.Background(), params)
 	if err != nil {
 		t.Fatalf("list customers after delete: %v", err)
 	}
-	if len(customers) != 0 {
-		t.Errorf("List() returned %d customers after delete, want 0", len(customers))
+	if len(customers.Items) != 0 {
+		t.Errorf("List() returned %d customers after delete, want 0", len(customers.Items))
 	}
 	var deleted customerRecord
 	if err := tx.Unscoped().First(&deleted, "id = ?", customer.ID()).Error; err != nil {

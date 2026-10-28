@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/medanielsantos/fiap-soat/internal/customer/application"
 	"github.com/medanielsantos/fiap-soat/internal/customer/domain"
+	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
 	"gorm.io/gorm"
 )
 
@@ -32,20 +33,26 @@ func (repository *CustomerRepository) FindByID(ctx context.Context, id string) (
 	return record.toDomain()
 }
 
-func (repository *CustomerRepository) List(ctx context.Context) ([]domain.Customer, error) {
+func (repository *CustomerRepository) List(ctx context.Context, params pagination.Params) (pagination.Page[domain.Customer], error) {
+	db := repository.db.WithContext(ctx)
+	var totalItems int64
+	if err := db.Model(&customerRecord{}).Count(&totalItems).Error; err != nil {
+		return pagination.Page[domain.Customer]{}, translateError(err)
+	}
+
 	var records []customerRecord
-	if err := repository.db.WithContext(ctx).Order("created_at DESC").Find(&records).Error; err != nil {
-		return nil, translateError(err)
+	if err := db.Order("created_at DESC").Limit(params.Limit()).Offset(params.Offset()).Find(&records).Error; err != nil {
+		return pagination.Page[domain.Customer]{}, translateError(err)
 	}
 	customers := make([]domain.Customer, 0, len(records))
 	for _, record := range records {
 		customer, err := record.toDomain()
 		if err != nil {
-			return nil, err
+			return pagination.Page[domain.Customer]{}, err
 		}
 		customers = append(customers, customer)
 	}
-	return customers, nil
+	return pagination.NewPage(customers, params, totalItems), nil
 }
 
 func (repository *CustomerRepository) Update(ctx context.Context, customer domain.Customer) error {

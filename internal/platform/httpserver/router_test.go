@@ -8,6 +8,7 @@ import (
 	customerhttp "github.com/medanielsantos/fiap-soat/internal/customer/adapters/in/http"
 	"github.com/medanielsantos/fiap-soat/internal/customer/application"
 	"github.com/medanielsantos/fiap-soat/internal/customer/domain"
+	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
 )
 
 type routeTestCustomerStore struct{}
@@ -16,9 +17,11 @@ func (routeTestCustomerStore) Save(context.Context, domain.Customer) error { ret
 func (routeTestCustomerStore) FindByID(context.Context, string) (domain.Customer, error) {
 	return domain.Customer{}, application.ErrCustomerNotFound
 }
-func (routeTestCustomerStore) List(context.Context) ([]domain.Customer, error) { return nil, nil }
-func (routeTestCustomerStore) Update(context.Context, domain.Customer) error   { return nil }
-func (routeTestCustomerStore) Delete(context.Context, string) error            { return nil }
+func (routeTestCustomerStore) List(_ context.Context, params pagination.Params) (pagination.Page[domain.Customer], error) {
+	return pagination.NewPage[domain.Customer](nil, params, 0), nil
+}
+func (routeTestCustomerStore) Update(context.Context, domain.Customer) error { return nil }
+func (routeTestCustomerStore) Delete(context.Context, string) error          { return nil }
 
 type routeTestIDGenerator struct{}
 

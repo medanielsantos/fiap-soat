@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/medanielsantos/fiap-soat/internal/customer/domain"
+	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
 )
 
 type memoryCustomerStore struct {
@@ -33,12 +34,12 @@ func (store *memoryCustomerStore) FindByID(_ context.Context, id string) (domain
 	return customer, nil
 }
 
-func (store *memoryCustomerStore) List(context.Context) ([]domain.Customer, error) {
+func (store *memoryCustomerStore) List(_ context.Context, params pagination.Params) (pagination.Page[domain.Customer], error) {
 	customers := make([]domain.Customer, 0, len(store.customers))
 	for _, customer := range store.customers {
 		customers = append(customers, customer)
 	}
-	return customers, nil
+	return pagination.NewPage(customers, params, int64(len(customers))), nil
 }
 
 func (store *memoryCustomerStore) Update(_ context.Context, customer domain.Customer) error {

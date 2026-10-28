@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/medanielsantos/fiap-soat/internal/customer/application"
 	"github.com/medanielsantos/fiap-soat/internal/customer/domain"
+	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
 )
 
 type Handler struct {
@@ -68,18 +69,23 @@ func (handler *Handler) Create(c *echo.Context) error {
 }
 
 func (handler *Handler) List(c *echo.Context) error {
-	customers, err := handler.service.List(c.Request().Context())
+	params, err := pagination.Parse(c.QueryParam("page"), c.QueryParam("per_page"))
+	if err != nil {
+		return writeProblem(c, http.StatusBadRequest, "Invalid pagination", err.Error())
+	}
+	page, err := handler.service.List(c.Request().Context(), params)
 	if err != nil {
 		return handleError(c, err)
 	}
-	if len(customers) == 0 {
+	if page.TotalItems == 0 {
 		return c.NoContent(http.StatusNoContent)
 	}
-	response := make([]customerResponse, 0, len(customers))
-	for _, customer := range customers {
+	response := make([]customerResponse, 0, len(page.Items))
+	for _, customer := range page.Items {
 		response = append(response, responseFromDomain(customer))
 	}
-	return c.JSON(http.StatusOK, response)
+	responsePage := pagination.NewPage(response, params, page.TotalItems)
+	return c.JSON(http.StatusOK, pagination.NewResponse(responsePage, c.Request().URL.String()))
 }
 
 func (handler *Handler) Get(c *echo.Context) error {

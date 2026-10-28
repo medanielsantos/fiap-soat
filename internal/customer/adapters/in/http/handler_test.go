@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/medanielsantos/fiap-soat/internal/customer/application"
 	"github.com/medanielsantos/fiap-soat/internal/customer/domain"
+	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
 )
 
 type handlerCustomerStore struct {
@@ -30,12 +31,12 @@ func (store *handlerCustomerStore) FindByID(_ context.Context, id string) (domai
 	return customer, nil
 }
 
-func (store *handlerCustomerStore) List(context.Context) ([]domain.Customer, error) {
+func (store *handlerCustomerStore) List(_ context.Context, params pagination.Params) (pagination.Page[domain.Customer], error) {
 	customers := make([]domain.Customer, 0, len(store.customers))
 	for _, customer := range store.customers {
 		customers = append(customers, customer)
 	}
-	return customers, nil
+	return pagination.NewPage(customers, params, int64(len(customers))), nil
 }
 
 func (store *handlerCustomerStore) Update(_ context.Context, customer domain.Customer) error {

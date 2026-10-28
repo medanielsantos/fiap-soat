@@ -8,6 +8,7 @@
 - Campos de entrada para CPF/CNPJ podem conter pontuação; o adaptador normaliza para dígitos antes de chamar o caso de uso.
 - Respostas comuns não retornam CPF/CNPJ completos; retornam valor mascarado quando ele precisa ser exibido. Placas podem ser retornadas a consumidores autorizados.
 - Não serializar diretamente entidades do domínio ou modelos do banco; usar DTOs de resposta explícitos.
+- Endpoints de coleção aceitam `page` e `per_page`; os padrões são página `1` e tamanho `20`, com máximo `100`. Respostas usam `data`, metadados em `pagination` e URLs `self`, `next` e `prev` em `links`.
 
 ## RFC 9457 e snake_case
 
