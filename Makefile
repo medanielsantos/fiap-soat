@@ -1,7 +1,10 @@
-.PHONY: run test lint build
+.PHONY: run migrate test lint build
 
 run:
 	go run ./cmd/api
+
+migrate:
+	go run ./cmd/migrate up
 
 test:
 	go test ./...

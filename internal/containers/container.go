@@ -22,6 +22,11 @@ func New() (*dig.Container, error) {
 	if err := container.Provide(customerpostgres.NewCustomerRepository); err != nil {
 		return nil, err
 	}
+	if err := container.Provide(func(repository *customerpostgres.CustomerRepository) application.CustomerStore {
+		return repository
+	}); err != nil {
+		return nil, err
+	}
 	if err := container.Provide(func() application.IDGenerator { return platformid.UUIDGenerator{} }); err != nil {
 		return nil, err
 	}

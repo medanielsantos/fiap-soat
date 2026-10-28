@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/medanielsantos/fiap-soat/internal/customer/application"
 	"github.com/medanielsantos/fiap-soat/internal/customer/domain"
 )
@@ -52,7 +52,7 @@ type problem struct {
 	Instance string `json:"instance"`
 }
 
-func (handler *Handler) Create(c echo.Context) error {
+func (handler *Handler) Create(c *echo.Context) error {
 	var request customerRequest
 	if err := decodeRequest(c, &request); err != nil {
 		return invalidRequest(c, err.Error())
@@ -67,10 +67,13 @@ func (handler *Handler) Create(c echo.Context) error {
 	return c.JSON(http.StatusCreated, responseFromDomain(customer))
 }
 
-func (handler *Handler) List(c echo.Context) error {
+func (handler *Handler) List(c *echo.Context) error {
 	customers, err := handler.service.List(c.Request().Context())
 	if err != nil {
 		return handleError(c, err)
+	}
+	if len(customers) == 0 {
+		return c.NoContent(http.StatusNoContent)
 	}
 	response := make([]customerResponse, 0, len(customers))
 	for _, customer := range customers {
@@ -79,7 +82,7 @@ func (handler *Handler) List(c echo.Context) error {
 	return c.JSON(http.StatusOK, response)
 }
 
-func (handler *Handler) Get(c echo.Context) error {
+func (handler *Handler) Get(c *echo.Context) error {
 	customer, err := handler.service.Get(c.Request().Context(), c.Param("id"))
 	if err != nil {
 		return handleError(c, err)
@@ -87,7 +90,7 @@ func (handler *Handler) Get(c echo.Context) error {
 	return c.JSON(http.StatusOK, responseFromDomain(customer))
 }
 
-func (handler *Handler) Update(c echo.Context) error {
+func (handler *Handler) Update(c *echo.Context) error {
 	var request customerRequest
 	if err := decodeRequest(c, &request); err != nil {
 		return invalidRequest(c, err.Error())
@@ -101,7 +104,7 @@ func (handler *Handler) Update(c echo.Context) error {
 	return c.JSON(http.StatusOK, responseFromDomain(customer))
 }
 
-func (handler *Handler) Delete(c echo.Context) error {
+func (handler *Handler) Delete(c *echo.Context) error {
 	if err := handler.service.Delete(c.Request().Context(), c.Param("id")); err != nil {
 		return handleError(c, err)
 	}
@@ -125,7 +128,7 @@ func maskDocument(value string) string {
 	return ""
 }
 
-func handleError(c echo.Context, err error) error {
+func handleError(c *echo.Context, err error) error {
 	switch {
 	case errors.Is(err, application.ErrCustomerNotFound):
 		return writeProblem(c, http.StatusNotFound, "Customer not found", "The requested customer does not exist.")
@@ -140,18 +143,18 @@ func handleError(c echo.Context, err error) error {
 	}
 }
 
-func invalidRequest(c echo.Context, detail string) error {
+func invalidRequest(c *echo.Context, detail string) error {
 	return writeProblem(c, http.StatusBadRequest, "Invalid request", detail)
 }
 
-func writeProblem(c echo.Context, status int, title, detail string) error {
+func writeProblem(c *echo.Context, status int, title, detail string) error {
 	body, _ := json.Marshal(problem{
 		Type: "about:blank", Title: title, Status: status, Detail: detail, Instance: c.Request().URL.Path,
 	})
 	return c.Blob(status, "application/problem+json", body)
 }
 
-func decodeRequest(c echo.Context, target *customerRequest) error {
+func decodeRequest(c *echo.Context, target *customerRequest) error {
 	decoder := json.NewDecoder(c.Request().Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
