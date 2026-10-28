@@ -34,6 +34,16 @@ A API escuta em `:8080` por padrão. Defina `HTTP_ADDR` para alterar o endereço
 
 O adaptador PostgreSQL usa GORM. Configure `DATABASE_URL` com a URL de conexão do PostgreSQL. A primeira migração cria apenas a tabela `customers`, que corresponde ao domínio de clientes já implementado. As migrações seguem o formato Goose e podem ser aplicadas com `goose -dir migrations postgres "$DATABASE_URL" up`.
 
+## Clientes
+
+- `POST /customers`: cadastra cliente; `document`, `name`, `email` e `phone` são obrigatórios. `status` pode ser omitido e inicia como `active`.
+- `GET /customers`: lista clientes.
+- `GET /customers/{id}`: consulta um cliente.
+- `PUT /customers/{id}`: atualiza `document`, `name`, `email`, `phone` e `status` (`active` ou `inactive`).
+- `DELETE /customers/{id}`: remove o cliente.
+
+CPF/CNPJ são validados e persistidos somente com dígitos. Nas respostas, o documento é mascarado. Erros seguem `application/problem+json`.
+
 ## Estrutura Go
 
 Esta é a estrutura-alvo; módulos são criados conforme as capacidades forem implementadas. Diretórios compostos usam kebab-case; nomes de pacotes Go não usam hífen.

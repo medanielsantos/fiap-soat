@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	customerhttp "github.com/medanielsantos/fiap-soat/internal/customer/adapters/in/http"
 	"github.com/medanielsantos/fiap-soat/internal/platform/config"
 )
 
@@ -16,7 +17,7 @@ type Server struct {
 	echo    *echo.Echo
 }
 
-func New(cfg config.Config) *Server {
+func New(cfg config.Config, customerHandler *customerhttp.Handler) *Server {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -24,6 +25,8 @@ func New(cfg config.Config) *Server {
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
+	e.Use(middleware.BodyLimit("1M"))
+	customerHandler.RegisterRoutes(e.Group("/customers"))
 
 	return &Server{address: cfg.HTTPAddress, echo: e}
 }

@@ -1,10 +1,13 @@
 package containers
 
 import (
+	customerhttp "github.com/medanielsantos/fiap-soat/internal/customer/adapters/in/http"
 	customerpostgres "github.com/medanielsantos/fiap-soat/internal/customer/adapters/out/postgres"
+	"github.com/medanielsantos/fiap-soat/internal/customer/application"
 	"github.com/medanielsantos/fiap-soat/internal/platform/config"
 	"github.com/medanielsantos/fiap-soat/internal/platform/database"
 	"github.com/medanielsantos/fiap-soat/internal/platform/httpserver"
+	platformid "github.com/medanielsantos/fiap-soat/internal/platform/id"
 	"go.uber.org/dig"
 )
 
@@ -17,6 +20,15 @@ func New() (*dig.Container, error) {
 		return nil, err
 	}
 	if err := container.Provide(customerpostgres.NewCustomerRepository); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func() application.IDGenerator { return platformid.UUIDGenerator{} }); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(application.NewCustomerService); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(customerhttp.NewHandler); err != nil {
 		return nil, err
 	}
 	if err := container.Provide(httpserver.New); err != nil {

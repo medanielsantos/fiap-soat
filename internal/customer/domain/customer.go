@@ -10,6 +10,7 @@ var (
 	ErrInvalidName       = errors.New("customer name is required")
 	ErrInvalidEmail      = errors.New("invalid customer email")
 	ErrInvalidPhone      = errors.New("customer phone is required")
+	ErrInvalidStatus     = errors.New("invalid customer status")
 )
 
 type CustomerStatus string
@@ -29,6 +30,10 @@ type Customer struct {
 }
 
 func NewCustomer(id string, document Document, name, email, phone string) (Customer, error) {
+	return RestoreCustomer(id, document, name, email, phone, CustomerStatusActive)
+}
+
+func RestoreCustomer(id string, document Document, name, email, phone string, status CustomerStatus) (Customer, error) {
 	id = strings.TrimSpace(id)
 	name = strings.TrimSpace(name)
 	email = strings.TrimSpace(email)
@@ -45,6 +50,8 @@ func NewCustomer(id string, document Document, name, email, phone string) (Custo
 		return Customer{}, ErrInvalidEmail
 	case phone == "":
 		return Customer{}, ErrInvalidPhone
+	case status != CustomerStatusActive && status != CustomerStatusInactive:
+		return Customer{}, ErrInvalidStatus
 	}
 
 	return Customer{
@@ -53,7 +60,7 @@ func NewCustomer(id string, document Document, name, email, phone string) (Custo
 		name:   name,
 		email:  email,
 		phone:  phone,
-		status: CustomerStatusActive,
+		status: status,
 	}, nil
 }
 
