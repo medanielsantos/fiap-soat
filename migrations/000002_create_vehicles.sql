@@ -6,6 +6,8 @@ CREATE TABLE vehicles (
     brand TEXT NOT NULL,
     model TEXT NOT NULL,
     year INTEGER NOT NULL,
+    created_by TEXT,
+    updated_by TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,

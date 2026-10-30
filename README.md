@@ -54,6 +54,16 @@ CPF/CNPJ são validados e persistidos somente com dígitos. Nas respostas, o doc
 
 A placa aceita os formatos antigo (`ABC1234`) e Mercosul (`ABC1D23`), com ou sem hífen, e é persistida em maiúsculas sem separadores. É única entre veículos não excluídos (`409` em caso de duplicidade); após exclusão lógica, pode ser cadastrada novamente. `year` deve estar entre `1900` e o ano seguinte ao atual.
 
+## Catálogo e estoque
+
+- `/api/v1/services`: `POST`, `GET` paginado, `GET /{id}`, `PUT /{id}` e `DELETE /{id}` para serviços. Cada serviço tem `internal_code`, `sale_price_in_cents` e `estimated_duration_minutes`.
+- `/api/v1/parts`: mesmos endpoints para peças e insumos. Cada peça tem `sku`, `internal_code`, `purchase_price_in_cents`, `sale_price_in_cents` e `unit`. No cadastro, `initial_stock` inicia o saldo (padrão `0`); atualizações não alteram o saldo.
+- `POST /api/v1/parts/{id}/stock-movements`: registra entrada (`{"type":"entry","quantity":5,"created_by":"user-id"}`) ou saída (`{"type":"exit","quantity":2,"created_by":"user-id"}`), com `description` e `created_by` opcionais. Saídas acima do saldo disponível retornam `409`.
+
+Todos os valores monetários usam centavos inteiros (`*_price_in_cents`). SKU e códigos internos são únicos entre registros ativos. Os movimentos são registrados em histórico imutável; reservas e consumo vinculados à aprovação de OS dependem da implementação do módulo de ordens de serviço.
+
+As tabelas de clientes, veículos, serviços e peças têm `created_by` e `updated_by`; movimentos de estoque têm `created_by`. Os campos ainda não têm chave estrangeira; as constraints serão adicionadas quando o cadastro de usuários estiver definido.
+
 ## Estrutura Go
 
 Esta é a estrutura-alvo; módulos são criados conforme as capacidades forem implementadas. Diretórios compostos usam kebab-case; nomes de pacotes Go não usam hífen.

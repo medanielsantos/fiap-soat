@@ -8,6 +8,9 @@ import (
 	"github.com/medanielsantos/fiap-soat/internal/platform/database"
 	"github.com/medanielsantos/fiap-soat/internal/platform/httpserver"
 	platformid "github.com/medanielsantos/fiap-soat/internal/platform/id"
+	cataloghttp "github.com/medanielsantos/fiap-soat/internal/servicecatalog/adapters/in/http"
+	catalogpostgres "github.com/medanielsantos/fiap-soat/internal/servicecatalog/adapters/out/postgres"
+	catalogapp "github.com/medanielsantos/fiap-soat/internal/servicecatalog/application"
 	vehiclehttp "github.com/medanielsantos/fiap-soat/internal/vehicle/adapters/in/http"
 	vehiclecustomer "github.com/medanielsantos/fiap-soat/internal/vehicle/adapters/out/customer"
 	vehiclepostgres "github.com/medanielsantos/fiap-soat/internal/vehicle/adapters/out/postgres"
@@ -60,6 +63,21 @@ func New() (*dig.Container, error) {
 		return nil, err
 	}
 	if err := container.Provide(vehiclehttp.NewHandler); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(catalogpostgres.NewRepository); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func(repository *catalogpostgres.Repository) catalogapp.Store { return repository }); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func() catalogapp.IDGenerator { return platformid.UUIDGenerator{} }); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(catalogapp.NewCatalogService); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(cataloghttp.NewHandler); err != nil {
 		return nil, err
 	}
 	if err := container.Provide(httpserver.NewEngine); err != nil {
