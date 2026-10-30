@@ -6,6 +6,8 @@ CREATE TABLE customers (
     email TEXT NOT NULL,
     phone TEXT NOT NULL,
     status VARCHAR(8) NOT NULL DEFAULT 'active',
+    created_by TEXT,
+    updated_by TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,

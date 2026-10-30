@@ -9,6 +9,8 @@ import (
 	"github.com/medanielsantos/fiap-soat/internal/customer/application"
 	"github.com/medanielsantos/fiap-soat/internal/customer/domain"
 	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
+	cataloghttp "github.com/medanielsantos/fiap-soat/internal/servicecatalog/adapters/in/http"
+	catalogapp "github.com/medanielsantos/fiap-soat/internal/servicecatalog/application"
 	vehiclehttp "github.com/medanielsantos/fiap-soat/internal/vehicle/adapters/in/http"
 	vehicleapp "github.com/medanielsantos/fiap-soat/internal/vehicle/application"
 	vehicledomain "github.com/medanielsantos/fiap-soat/internal/vehicle/domain"
@@ -48,11 +50,14 @@ type routeTestIDGenerator struct{}
 
 func (routeTestIDGenerator) NewID(context.Context) (string, error) { return "id", nil }
 
+type routeTestCatalogStore struct{ catalogapp.Store }
+
 func TestRouterRegistersVersionedRoutes(t *testing.T) {
 	e := echo.New()
 	service := application.NewCustomerService(routeTestCustomerStore{}, routeTestIDGenerator{})
 	vehicleService := vehicleapp.NewVehicleService(routeTestVehicleStore{}, routeTestCustomerDirectory{}, routeTestIDGenerator{})
-	router := NewRouter(e, customerhttp.NewHandler(service), vehiclehttp.NewHandler(vehicleService))
+	catalogService := catalogapp.NewCatalogService(routeTestCatalogStore{}, routeTestIDGenerator{})
+	router := NewRouter(e, customerhttp.NewHandler(service), vehiclehttp.NewHandler(vehicleService), cataloghttp.NewHandler(catalogService))
 	router.Register()
 
 	registered := make(map[string]bool)
@@ -71,6 +76,10 @@ func TestRouterRegistersVersionedRoutes(t *testing.T) {
 		"GET /api/v1/vehicles/:id",
 		"PUT /api/v1/vehicles/:id",
 		"DELETE /api/v1/vehicles/:id",
+		"POST /api/v1/services",
+		"GET /api/v1/services",
+		"POST /api/v1/parts",
+		"POST /api/v1/parts/:id/stock-movements",
 	} {
 		if !registered[route] {
 			t.Errorf("route %q was not registered", route)
