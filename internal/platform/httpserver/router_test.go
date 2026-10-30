@@ -9,6 +9,9 @@ import (
 	"github.com/medanielsantos/fiap-soat/internal/customer/application"
 	"github.com/medanielsantos/fiap-soat/internal/customer/domain"
 	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
+	vehiclehttp "github.com/medanielsantos/fiap-soat/internal/vehicle/adapters/in/http"
+	vehicleapp "github.com/medanielsantos/fiap-soat/internal/vehicle/application"
+	vehicledomain "github.com/medanielsantos/fiap-soat/internal/vehicle/domain"
 )
 
 type routeTestCustomerStore struct{}
@@ -23,6 +26,24 @@ func (routeTestCustomerStore) List(_ context.Context, params pagination.Params) 
 func (routeTestCustomerStore) Update(context.Context, domain.Customer) error { return nil }
 func (routeTestCustomerStore) Delete(context.Context, string) error          { return nil }
 
+type routeTestVehicleStore struct{}
+
+func (routeTestVehicleStore) Save(context.Context, vehicledomain.Vehicle) error { return nil }
+func (routeTestVehicleStore) FindByID(context.Context, string) (vehicledomain.Vehicle, error) {
+	return vehicledomain.Vehicle{}, vehicleapp.ErrVehicleNotFound
+}
+func (routeTestVehicleStore) List(_ context.Context, _ vehicleapp.ListFilter, params pagination.Params) (pagination.Page[vehicledomain.Vehicle], error) {
+	return pagination.NewPage[vehicledomain.Vehicle](nil, params, 0), nil
+}
+func (routeTestVehicleStore) Update(context.Context, vehicledomain.Vehicle) error { return nil }
+func (routeTestVehicleStore) Delete(context.Context, string) error                { return nil }
+
+type routeTestCustomerDirectory struct{}
+
+func (routeTestCustomerDirectory) IsActiveCustomer(context.Context, string) (bool, error) {
+	return true, nil
+}
+
 type routeTestIDGenerator struct{}
 
 func (routeTestIDGenerator) NewID(context.Context) (string, error) { return "id", nil }
@@ -30,7 +51,8 @@ func (routeTestIDGenerator) NewID(context.Context) (string, error) { return "id"
 func TestRouterRegistersVersionedRoutes(t *testing.T) {
 	e := echo.New()
 	service := application.NewCustomerService(routeTestCustomerStore{}, routeTestIDGenerator{})
-	router := NewRouter(e, customerhttp.NewHandler(service))
+	vehicleService := vehicleapp.NewVehicleService(routeTestVehicleStore{}, routeTestCustomerDirectory{}, routeTestIDGenerator{})
+	router := NewRouter(e, customerhttp.NewHandler(service), vehiclehttp.NewHandler(vehicleService))
 	router.Register()
 
 	registered := make(map[string]bool)
@@ -44,6 +66,11 @@ func TestRouterRegistersVersionedRoutes(t *testing.T) {
 		"GET /api/v1/customers/:id",
 		"PUT /api/v1/customers/:id",
 		"DELETE /api/v1/customers/:id",
+		"POST /api/v1/vehicles",
+		"GET /api/v1/vehicles",
+		"GET /api/v1/vehicles/:id",
+		"PUT /api/v1/vehicles/:id",
+		"DELETE /api/v1/vehicles/:id",
 	} {
 		if !registered[route] {
 			t.Errorf("route %q was not registered", route)

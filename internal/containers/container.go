@@ -8,6 +8,10 @@ import (
 	"github.com/medanielsantos/fiap-soat/internal/platform/database"
 	"github.com/medanielsantos/fiap-soat/internal/platform/httpserver"
 	platformid "github.com/medanielsantos/fiap-soat/internal/platform/id"
+	vehiclehttp "github.com/medanielsantos/fiap-soat/internal/vehicle/adapters/in/http"
+	vehiclecustomer "github.com/medanielsantos/fiap-soat/internal/vehicle/adapters/out/customer"
+	vehiclepostgres "github.com/medanielsantos/fiap-soat/internal/vehicle/adapters/out/postgres"
+	vehicleapp "github.com/medanielsantos/fiap-soat/internal/vehicle/application"
 	"go.uber.org/dig"
 )
 
@@ -34,6 +38,28 @@ func New() (*dig.Container, error) {
 		return nil, err
 	}
 	if err := container.Provide(customerhttp.NewHandler); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(vehiclepostgres.NewVehicleRepository); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func(repository *vehiclepostgres.VehicleRepository) vehicleapp.VehicleStore {
+		return repository
+	}); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func(service *application.CustomerService) vehicleapp.CustomerDirectory {
+		return vehiclecustomer.NewDirectory(service)
+	}); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func() vehicleapp.IDGenerator { return platformid.UUIDGenerator{} }); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(vehicleapp.NewVehicleService); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(vehiclehttp.NewHandler); err != nil {
 		return nil, err
 	}
 	if err := container.Provide(httpserver.NewEngine); err != nil {
