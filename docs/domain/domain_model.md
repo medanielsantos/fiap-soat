@@ -26,7 +26,8 @@ As fronteiras finais de agregado devem ser revistas ao detalhar consistência tr
 ## Value objects e invariantes
 
 - CPF/CNPJ: validar dígitos verificadores; armazenar forma canônica apenas com dígitos.
-- Placa: normalizar e validar formatos aceitos; sua política de unicidade será definida no cadastro.
+- Placa: aceitar formatos antigo (`ABC1234`) e Mercosul (`ABC1D23`); persistir em maiúsculas sem separadores; única entre veículos não excluídos logicamente.
+- Veículo: só pode ser cadastrado ou transferido para cliente existente e ativo, verificado via porta `CustomerDirectory`.
 - Dinheiro: `int64` em centavos, nunca `float`.
 - Quantidade: tipo inteiro/decimal conforme unidade do item; não permitir estoque negativo.
 - Status: mudança somente por transições permitidas.

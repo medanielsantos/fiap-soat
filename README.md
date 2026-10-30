@@ -2,7 +2,7 @@
 
 Back-end para apoiar o atendimento e a execução de serviços de uma oficina mecânica: clientes, veículos, ordens de serviço, orçamentos, catálogo e estoque.
 
-> Projeto independente baseado nos requisitos do Tech Challenge SOAT. Desenvolvimento incremental, no ritmo do autor. A base da API e o domínio inicial de clientes estão em implementação.
+> Projeto independente baseado nos requisitos do Tech Challenge SOAT. Desenvolvimento incremental, no ritmo do autor. A base da API e os domínios de clientes e veículos estão em implementação.
 
 ## Objetivo
 
@@ -32,7 +32,7 @@ go run ./cmd/api
 
 A API escuta na porta `8080` por padrão. Defina `APP_HTTP_PORT` para alterar a porta. A rota `GET /health` retorna `{"status":"ok"}`; as rotas da API usam o prefixo `/api/v1`.
 
-O adaptador PostgreSQL usa GORM. Em desenvolvimento local, copie `.env.example` para `.env` e configure `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` e `DB_PASSWORD`. O arquivo `.env` é carregado automaticamente e ignorado pelo Git. Se `DATABASE_URL` estiver definida no ambiente, ela tem prioridade. Ao executar a API na máquina host, use `DB_HOST=localhost`; em Docker Compose, use o nome do serviço PostgreSQL, como `postgres`. A primeira migração cria apenas a tabela `customers`. Aplique as migrações com `make migrate` ou `go run ./cmd/migrate up`; o comando usa a mesma configuração `.env` da API.
+O adaptador PostgreSQL usa GORM. Em desenvolvimento local, copie `.env.example` para `.env` e configure `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` e `DB_PASSWORD`. O arquivo `.env` é carregado automaticamente e ignorado pelo Git. Se `DATABASE_URL` estiver definida no ambiente, ela tem prioridade. Ao executar a API na máquina host, use `DB_HOST=localhost`; em Docker Compose, use o nome do serviço PostgreSQL, como `postgres`. As migrações criam as tabelas `customers` e `vehicles`. Aplique as migrações com `make migrate` ou `go run ./cmd/migrate up`; o comando usa a mesma configuração `.env` da API.
 
 ## Clientes
 
@@ -43,6 +43,16 @@ O adaptador PostgreSQL usa GORM. Em desenvolvimento local, copie `.env.example` 
 - `DELETE /api/v1/customers/{id}`: desativa logicamente o cliente; o registro permanece no banco com `deleted_at` preenchido.
 
 CPF/CNPJ são validados e persistidos somente com dígitos. Nas respostas, o documento é mascarado. Erros seguem `application/problem+json`.
+
+## Veículos
+
+- `POST /api/v1/vehicles`: cadastra veículo; `customer_id`, `plate`, `brand`, `model` e `year` são obrigatórios. O cliente precisa existir e estar ativo; caso contrário, retorna `422`.
+- `GET /api/v1/vehicles?customer_id=&page=1&per_page=20`: lista veículos paginados, com filtro opcional por cliente. Retorna `204` se não houver veículos.
+- `GET /api/v1/vehicles/{id}`: consulta um veículo.
+- `PUT /api/v1/vehicles/{id}`: atualiza `customer_id`, `plate`, `brand`, `model` e `year`.
+- `DELETE /api/v1/vehicles/{id}`: desativa logicamente o veículo (`deleted_at`).
+
+A placa aceita os formatos antigo (`ABC1234`) e Mercosul (`ABC1D23`), com ou sem hífen, e é persistida em maiúsculas sem separadores. É única entre veículos não excluídos (`409` em caso de duplicidade); após exclusão lógica, pode ser cadastrada novamente. `year` deve estar entre `1900` e o ano seguinte ao atual.
 
 ## Estrutura Go
 
