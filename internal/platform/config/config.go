@@ -13,6 +13,7 @@ const defaultHTTPPort = "8080"
 type Config struct {
 	HTTPAddress              string
 	DatabaseURL              string
+	RedisURL                 string
 	JWTSecret                string
 	JWTIssuer                string
 	JWTExpiry                time.Duration
@@ -41,6 +42,7 @@ func Load() Config {
 	return Config{
 		HTTPAddress:              ":" + port,
 		DatabaseURL:              databaseURL,
+		RedisURL:                 os.Getenv("REDIS_URL"),
 		JWTSecret:                os.Getenv("JWT_SECRET"),
 		JWTIssuer:                envOr("JWT_ISSUER", "fiap-soat"),
 		JWTExpiry:                24 * time.Hour,

@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -15,28 +14,32 @@ import (
 	"github.com/medanielsantos/fiap-soat/internal/customer/domain"
 	identityjwt "github.com/medanielsantos/fiap-soat/internal/identity/adapters/out/jwt"
 	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
+	"github.com/medanielsantos/fiap-soat/internal/platform/ratelimit"
 	vehicleapp "github.com/medanielsantos/fiap-soat/internal/vehicle/application"
 	workorderapp "github.com/medanielsantos/fiap-soat/internal/workorder/application"
 	workorderdomain "github.com/medanielsantos/fiap-soat/internal/workorder/domain"
 )
 
 type Handler struct {
-	service    *application.CustomerService
-	vehicles   *vehicleapp.VehicleService
-	issuer     *identityjwt.Issuer
-	workOrders *workorderapp.Service
+	service     *application.CustomerService
+	vehicles    *vehicleapp.VehicleService
+	issuer      *identityjwt.Issuer
+	workOrders  *workorderapp.Service
+	rateLimiter ratelimit.Limiter
 }
 
 type ClientDependencies struct {
-	Vehicles   *vehicleapp.VehicleService
-	Issuer     *identityjwt.Issuer
-	WorkOrders *workorderapp.Service
+	Vehicles    *vehicleapp.VehicleService
+	Issuer      *identityjwt.Issuer
+	WorkOrders  *workorderapp.Service
+	RateLimiter ratelimit.Limiter
 }
 
 func NewHandler(service *application.CustomerService, client ...ClientDependencies) *Handler {
 	handler := &Handler{service: service}
 	if len(client) > 0 {
 		handler.vehicles, handler.issuer, handler.workOrders = client[0].Vehicles, client[0].Issuer, client[0].WorkOrders
+		handler.rateLimiter = client[0].RateLimiter
 	}
 	return handler
 }
@@ -147,17 +150,14 @@ type clientWorkOrder struct {
 	UpdatedAt time.Time              `json:"updated_at"`
 }
 
-var clientAttempts = struct {
-	sync.Mutex
-	values      map[string][]time.Time
-	lastCleanup time.Time
-}{values: map[string][]time.Time{}}
-
-const maxClientAttemptKeys = 10000
+const (
+	clientAuthLimit       = 5
+	clientAPIRequestLimit = 60
+)
 
 func (handler *Handler) clientLogin(c *echo.Context) error {
-	if !allowClientAttempt(c.RealIP()) {
-		return writeProblem(c, http.StatusTooManyRequests, "Too many attempts", "Try again later.")
+	if err := handler.enforceRateLimit(c, "client:auth:"+c.RealIP(), clientAuthLimit); err != nil {
+		return err
 	}
 	var req clientLoginRequest
 	if err := decodeGeneric(c, &req); err != nil {
@@ -175,8 +175,8 @@ func (handler *Handler) clientLogin(c *echo.Context) error {
 }
 
 func (handler *Handler) plateLogin(c *echo.Context) error {
-	if !allowClientAttempt(c.RealIP()) {
-		return writeProblem(c, http.StatusTooManyRequests, "Too many attempts", "Try again later.")
+	if err := handler.enforceRateLimit(c, "client:auth:"+c.RealIP(), clientAuthLimit); err != nil {
+		return err
 	}
 	var req plateLoginRequest
 	if err := decodeGeneric(c, &req); err != nil {
@@ -194,8 +194,8 @@ func (handler *Handler) plateLogin(c *echo.Context) error {
 }
 
 func (handler *Handler) clientForgotPassword(c *echo.Context) error {
-	if !allowClientAttempt(c.RealIP()) {
-		return writeProblem(c, http.StatusTooManyRequests, "Too many attempts", "Try again later.")
+	if err := handler.enforceRateLimit(c, "client:auth:"+c.RealIP(), clientAuthLimit); err != nil {
+		return err
 	}
 	var req struct {
 		Email string `json:"email"`
@@ -210,6 +210,9 @@ func (handler *Handler) clientForgotPassword(c *echo.Context) error {
 }
 
 func (handler *Handler) clientResetPassword(c *echo.Context) error {
+	if err := handler.enforceRateLimit(c, "client:auth:"+c.RealIP(), clientAuthLimit); err != nil {
+		return err
+	}
 	var req clientResetRequest
 	if err := decodeGeneric(c, &req); err != nil {
 		return invalidRequest(c, "Invalid request")
@@ -234,6 +237,9 @@ func (handler *Handler) requireClient() echo.MiddlewareFunc {
 			customer, err := handler.service.Get(c.Request().Context(), customerID)
 			if err != nil || !customer.IsActive() {
 				return writeProblem(c, 401, "Invalid access token", "The token is invalid or expired.")
+			}
+			if err := handler.enforceRateLimit(c, "client:api:"+customerID+":"+c.RealIP(), clientAPIRequestLimit); err != nil {
+				return err
 			}
 			c.Set("client_id", customerID)
 			c.Set("vehicle_id", vehicleID)
@@ -344,41 +350,19 @@ func (handler *Handler) clientOrder(c *echo.Context) (workorderdomain.WorkOrder,
 	return handler.workOrders.GetForClient(c.Request().Context(), c.Param("id"), customerID, vehicleID)
 }
 
-func allowClientAttempt(key string) bool {
-	now := time.Now()
-	clientAttempts.Lock()
-	defer clientAttempts.Unlock()
-	if now.Sub(clientAttempts.lastCleanup) >= time.Minute {
-		for ip, attempts := range clientAttempts.values {
-			valid := attempts[:0]
-			for _, attempt := range attempts {
-				if now.Sub(attempt) < time.Minute {
-					valid = append(valid, attempt)
-				}
-			}
-			if len(valid) == 0 {
-				delete(clientAttempts.values, ip)
-			} else {
-				clientAttempts.values[ip] = valid
-			}
-		}
-		clientAttempts.lastCleanup = now
+func (handler *Handler) enforceRateLimit(c *echo.Context, key string, limit int) error {
+	if handler.rateLimiter == nil {
+		return writeProblem(c, http.StatusServiceUnavailable, "Client access unavailable", "Rate limiting is temporarily unavailable.")
 	}
-	valid := clientAttempts.values[key][:0]
-	for _, attempt := range clientAttempts.values[key] {
-		if now.Sub(attempt) < time.Minute {
-			valid = append(valid, attempt)
-		}
+	allowed, err := handler.rateLimiter.Allow(c.Request().Context(), key, limit, time.Minute)
+	if err != nil {
+		return writeProblem(c, http.StatusServiceUnavailable, "Client access unavailable", "Rate limiting is temporarily unavailable.")
 	}
-	if len(valid) >= 5 {
-		clientAttempts.values[key] = valid
-		return false
+	if !allowed {
+		c.Response().Header().Set(echo.HeaderRetryAfter, "60")
+		return writeProblem(c, http.StatusTooManyRequests, "Too many requests", "Try again later.")
 	}
-	if len(valid) == 0 && len(clientAttempts.values) >= maxClientAttemptKeys {
-		return false
-	}
-	clientAttempts.values[key] = append(valid, now)
-	return true
+	return nil
 }
 
 func (handler *Handler) Create(c *echo.Context) error {

@@ -14,7 +14,7 @@ ADRs registram decisões técnicas importantes, seu contexto e seus efeitos. Um 
 | [ADR-008](ADR-008-controle-de-estoque.md) | Controle de estoque na OS | Proposto |
 | [ADR-009](ADR-009-contrato-da-api.md) | Contrato HTTP, snake_case e RFC 9457 | Aceito |
 | [ADR-010](ADR-010-dinheiro-e-dados-identificadores.md) | Dinheiro e identificadores pessoais | Aceito |
-| [ADR-011](ADR-011-redis.md) | Uso do Redis | Proposto |
+| [ADR-011](ADR-011-redis.md) | Rate limiting com Redis | Aceito |
 | [ADR-012](ADR-012-injecao-de-dependencias-dig.md) | Injeção de dependências com Dig | Aceito |
 
 ## Ciclo de vida

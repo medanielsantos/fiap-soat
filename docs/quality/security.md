@@ -6,6 +6,7 @@
 - Toda operação de cadastro, consulta ou alteração administrativa exige JWT administrativo. Isso inclui `/customers`, `/vehicles`, `/services`, `/parts`, `/work-orders` e `/admin/users`; o RBAC ainda restringe cada operação conforme perfil e permissão.
 - Rotas de consulta e decisão disponíveis ao cliente exigem token de cliente. Esse token tem escopo de cliente completo ou de um veículo, conforme o método de autenticação.
 - A especificação OpenAPI aplica autenticação administrativa por padrão e declara explicitamente as operações públicas e as que usam token de cliente.
+- Redis aplica rate limiting compartilhado aos fluxos de autenticação e acompanhamento do cliente. Se o Redis estiver indisponível, esses endpoints retornam `503`; as rotas administrativas continuam independentes do Redis.
 
 - Solicitar apenas dados necessários ao atendimento da oficina.
 - Receber CPF/CNPJ e placa via API quando necessários; validar e normalizar no limite do sistema.

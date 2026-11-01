@@ -162,6 +162,8 @@ paths:
       responses:
         '200': { description: Token de cliente com acesso a todos os veículos do cadastro }
         '401': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /client/auth/password/forgot:
     post:
       security: []
@@ -179,6 +181,7 @@ paths:
       responses:
         '202': { description: Solicitação aceita sem revelar se a conta existe }
         '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /client/auth/password/reset:
     post:
       security: []
@@ -197,6 +200,8 @@ paths:
       responses:
         '204': { description: Senha redefinida }
         '400': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /client/auth/plate:
     post:
       security: []
@@ -216,6 +221,7 @@ paths:
         '200': { description: Token limitado ao veículo identificado }
         '401': { $ref: '#/components/responses/Problem' }
         '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /client/vehicles:
     get:
       security: [{ clientBearerAuth: [] }]
@@ -227,6 +233,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PaginatedClientVehicles' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /client/work-orders:
     get:
       security: [{ clientBearerAuth: [] }]
@@ -238,6 +246,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PaginatedClientWorkOrders' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /client/work-orders/{id}:
     parameters: [{ $ref: '#/components/parameters/ID' }]
     get:
@@ -251,6 +261,8 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ClientWorkOrder' }
         '404': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /client/work-orders/{id}/quotes/approve:
     parameters: [{ $ref: '#/components/parameters/ID' }]
     post:
@@ -264,6 +276,8 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ClientWorkOrder' }
         '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /client/work-orders/{id}/quotes/reject:
     parameters: [{ $ref: '#/components/parameters/ID' }]
     post:
@@ -276,6 +290,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ClientWorkOrder' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
   /vehicles:
     get:
       summary: Lista veículos

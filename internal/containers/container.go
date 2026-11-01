@@ -13,6 +13,8 @@ import (
 	"github.com/medanielsantos/fiap-soat/internal/platform/email"
 	"github.com/medanielsantos/fiap-soat/internal/platform/httpserver"
 	platformid "github.com/medanielsantos/fiap-soat/internal/platform/id"
+	"github.com/medanielsantos/fiap-soat/internal/platform/ratelimit"
+	redisadapter "github.com/medanielsantos/fiap-soat/internal/platform/redis"
 	cataloghttp "github.com/medanielsantos/fiap-soat/internal/servicecatalog/adapters/in/http"
 	catalogpostgres "github.com/medanielsantos/fiap-soat/internal/servicecatalog/adapters/out/postgres"
 	catalogapp "github.com/medanielsantos/fiap-soat/internal/servicecatalog/application"
@@ -31,6 +33,11 @@ import (
 func New() (*dig.Container, error) {
 	container := dig.New()
 	if err := container.Provide(config.Load); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func(cfg config.Config) (ratelimit.Limiter, error) {
+		return redisadapter.NewRateLimiter(cfg.RedisURL)
+	}); err != nil {
 		return nil, err
 	}
 	if err := container.Provide(func(cfg config.Config) (*identityjwt.Issuer, error) {
@@ -77,8 +84,8 @@ func New() (*dig.Container, error) {
 	}); err != nil {
 		return nil, err
 	}
-	if err := container.Provide(func(service *application.CustomerService, vehicles *vehicleapp.VehicleService, issuer *identityjwt.Issuer, workOrders *workorderapp.Service) *customerhttp.Handler {
-		return customerhttp.NewHandler(service, customerhttp.ClientDependencies{Vehicles: vehicles, Issuer: issuer, WorkOrders: workOrders})
+	if err := container.Provide(func(service *application.CustomerService, vehicles *vehicleapp.VehicleService, issuer *identityjwt.Issuer, workOrders *workorderapp.Service, limiter ratelimit.Limiter) *customerhttp.Handler {
+		return customerhttp.NewHandler(service, customerhttp.ClientDependencies{Vehicles: vehicles, Issuer: issuer, WorkOrders: workOrders, RateLimiter: limiter})
 	}); err != nil {
 		return nil, err
 	}

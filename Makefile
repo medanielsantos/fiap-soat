@@ -1,4 +1,4 @@
-.PHONY: run migrate seed test test-unit test-integration test-coverage lint build
+.PHONY: run migrate seed test test-unit test-integration test-coverage lint build docker-up docker-down
 
 GOLANGCI_LINT ?= $(shell command -v golangci-lint 2>/dev/null || printf '%s/bin/golangci-lint' "$$(go env GOPATH)")
 
@@ -28,3 +28,9 @@ lint:
 
 build:
 	go build -o /tmp/fiap-api ./cmd/api
+
+docker-up:
+	docker compose --env-file .env -f .docker/local/compose.yaml up --build
+
+docker-down:
+	docker compose --env-file .env -f .docker/local/compose.yaml down

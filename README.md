@@ -20,7 +20,7 @@ Registrar o ciclo de serviço do veículo, da recepção à entrega, gerar orça
 - **Echo** para adaptador HTTP REST.
 - **Uber Dig** para montar o grafo de dependências no bootstrap.
 - **PostgreSQL** para persistência relacional e transações.
-- **Redis** proposto para dados efêmeros, rate limiting e credenciais temporárias de acompanhamento (ADR-011).
+- **Redis** para rate limiting distribuído nos endpoints de acesso e acompanhamento do cliente; PostgreSQL mantém dados duráveis (ADR-011).
 - **OpenAPI** para especificar a API.
 - **RFC 9457 Problem Details** para erros HTTP.
 - **JWT** para rotas administrativas.
@@ -37,7 +37,24 @@ go run ./cmd/api
 
 A API escuta na porta `8080` por padrão. Defina `APP_HTTP_PORT` para alterar a porta. A rota `GET /health` retorna `{"status":"ok"}`; as rotas da API usam o prefixo `/api/v1`.
 
-O adaptador PostgreSQL usa GORM. Em desenvolvimento local, copie `.env.example` para `.env` e configure as credenciais do PostgreSQL, `JWT_SECRET` e os dados SMTP. O arquivo `.env` é carregado automaticamente e ignorado pelo Git. `JWT_SECRET` deve ter pelo menos 32 bytes aleatórios. O envio de email usa SMTP com STARTTLS; Mailtrap é apenas uma opção de servidor SMTP. `PASSWORD_RESET_URL` aponta para a página que recebe o parâmetro `token`. Se `DATABASE_URL` estiver definida no ambiente, ela tem prioridade. Aplique as migrações com `make migrate` ou `go run ./cmd/migrate up`.
+O adaptador PostgreSQL usa GORM. Em desenvolvimento local, copie `.env.example` para `.env` e configure PostgreSQL, Redis, `JWT_SECRET` e SMTP quando for enviar e-mails. O `.env` é carregado automaticamente e ignorado pelo Git. `JWT_SECRET` deve ter pelo menos 32 bytes aleatórios; o valor do exemplo serve somente para desenvolvimento local. O envio de e-mail usa SMTP com STARTTLS. `PASSWORD_RESET_URL` aponta para a página que recebe o parâmetro `token`. Se `DATABASE_URL` estiver definida no ambiente, ela tem prioridade. Aplique as migrações com `make migrate` ou `go run ./cmd/migrate up`.
+
+### Docker Compose local
+
+Requer Docker com Compose. O Compose inicia a API, PostgreSQL e Redis. O container da API executa as migrações antes de iniciar o servidor. Os dados do PostgreSQL ficam em `.docker/postgres/data`; o Redis é efêmero e não persiste seus contadores.
+
+```sh
+cp .env.example .env
+docker compose --env-file .env -f .docker/local/compose.yaml up --build
+```
+
+A API fica em `http://localhost:8080`. Para parar os serviços sem apagar os dados do PostgreSQL:
+
+```sh
+docker compose --env-file .env -f .docker/local/compose.yaml down
+```
+
+Também é possível usar `make docker-up` e `make docker-down`. O `.docker/Dockerfile` usa build multistage e executa a imagem final como usuário não root. `.docker/entrypoint.sh` aplica as migrações e inicia a API.
 
 ## Usuários administrativos
 
@@ -74,7 +91,7 @@ CPF/CNPJ são validados e persistidos somente com dígitos. Nas respostas, o doc
 - `GET /api/v1/client/work-orders` e `GET /api/v1/client/work-orders/{id}`: lista ou consulta OS dentro do escopo da sessão.
 - `POST /api/v1/client/work-orders/{id}/quotes/approve` e `/quotes/reject`: aprova ou rejeita orçamento; o cliente é determinado pelo token.
 
-Tokens são enviados em `Authorization: Bearer <access_token>`. Login por placa e solicitação de redefinição limitam tentativas por endereço IP (cinco por minuto) e usam respostas que não revelam dados da conta. Configure `CUSTOMER_PASSWORD_RESET_URL` junto dos dados SMTP para habilitar o envio do link.
+Tokens são enviados em `Authorization: Bearer <access_token>`. Login, acesso por placa e recuperação/redefinição de senha são limitados a cinco tentativas por IP por minuto. As rotas autenticadas do cliente aceitam até 60 requisições por minuto por cliente e IP. Os contadores compartilhados usam Redis; se o Redis estiver indisponível, esses endpoints retornam `503`, enquanto as rotas administrativas continuam disponíveis. Configure `CUSTOMER_PASSWORD_RESET_URL` e SMTP para habilitar o envio do link.
 
 ## Veículos
 
@@ -151,14 +168,18 @@ Esta é a estrutura-alvo; módulos são criados conforme as capacidades forem im
 │   │   ├── application/
 │   │   └── adapters/
 │   ├── platform/                   # config, logging, HTTP e transações
-│   │   └── redis/                  # adaptador Redis proposto
+│   │   ├── ratelimit/              # contrato para rate limiting
+│   │   └── redis/                  # adaptador Redis para rate limiting
 │   └── utils/                      # helpers genéricos sem regra de domínio
 ├── migrations/
 ├── api/
 │   └── openapi.yaml
 ├── docs/
-├── Dockerfile
-├── compose.yaml
+├── .docker/
+│   ├── Dockerfile                  # build multistage
+│   ├── entrypoint.sh               # migra e inicia a API
+│   ├── local/compose.yaml          # API, PostgreSQL e Redis
+│   └── postgres/data/              # dados locais do PostgreSQL
 ├── go.mod
 └── README.md
 ```
@@ -183,7 +204,7 @@ CPF/CNPJ serão normalizados para somente dígitos antes de persistir. Valores m
 
 ## PostgreSQL
 
-PostgreSQL foi escolhido por transações ACID, constraints e integridade referencial, especialmente úteis para aprovações de orçamento e mudanças de estoque que precisam ser atômicas. O acesso ficará nos adaptadores de persistência. Redis está proposto apenas para dados efêmeros; sua decisão está em [ADR-011](docs/decisions/ADR-011-redis.md).
+PostgreSQL foi escolhido por transações ACID, constraints e integridade referencial, especialmente úteis para aprovações de orçamento e mudanças de estoque que precisam ser atômicas. O acesso fica nos adaptadores de persistência. Redis é usado somente para contadores temporários de rate limit e não substitui o PostgreSQL; veja [ADR-011](docs/decisions/ADR-011-redis.md).
 
 ## Segurança e qualidade
 
