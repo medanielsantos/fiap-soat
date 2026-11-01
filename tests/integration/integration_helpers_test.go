@@ -52,7 +52,8 @@ const (
 
 type testServer struct {
 	*echo.Echo
-	token string
+	token        string
+	identityRepo *identitypostgres.Repository
 }
 
 func newTestServer(t *testing.T) *testServer {
@@ -145,15 +146,16 @@ func newTestServer(t *testing.T) *testServer {
 	if err := identityStore.SeedAuthorization(context.Background()); err != nil {
 		t.Fatalf("seed roles and permissions: %v", err)
 	}
-	if err := identityStore.Create(context.Background(), identityapp.User{ID: testUserID, Name: "Integration Admin", Email: "admin@example.test", Password: "unused", Status: identityapp.UserStatusActive, Role: identityapp.UserRoleAdmin}); err != nil {
+	if err := identityStore.Create(context.Background(), identityapp.User{ID: testUserID, Name: "Integration Admin", Email: "admin@example.test", Password: "unused", Status: identityapp.UserStatusActive, Roles: []identityapp.UserRole{identityapp.UserRoleAdmin}}); err != nil {
 		t.Fatalf("seed integration admin: %v", err)
 	}
 	identityHandler := identityhttp.NewHandler(identityapp.NewService(identityStore, platformid.UUIDGenerator{}, issuer, nil, ""), issuer)
 	v1 := engine.Group("/api/v1")
 	v1.Use(identityHandler.RequireAuth())
+	identityHandler.RegisterRoutes(v1)
 	cataloghttp.NewHandler(catalogService).RegisterRoutes(v1, identityHandler.RequirePermission(identityapp.PermissionProductsCreate), identityHandler.RequirePermission(identityapp.PermissionProductsDelete))
 	workorderhttp.NewHandler(workService).RegisterRoutes(v1.Group("/work-orders"))
-	return &testServer{Echo: engine, token: token}
+	return &testServer{Echo: engine, token: token, identityRepo: identityStore}
 }
 
 func seedOwnerRecords(db *gorm.DB) error {
@@ -193,6 +195,10 @@ func assertStock(t *testing.T, server *testServer, partID string, stock, reserve
 }
 
 func call(t *testing.T, server *testServer, method, path string, body any, wantStatus int) map[string]any {
+	return callWithToken(t, server, server.token, method, path, body, wantStatus)
+}
+
+func callWithToken(t *testing.T, server *testServer, token, method, path string, body any, wantStatus int) map[string]any {
 	t.Helper()
 	var requestBody []byte
 	if body != nil {
@@ -204,7 +210,7 @@ func call(t *testing.T, server *testServer, method, path string, body any, wantS
 	}
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(method, path, bytes.NewReader(requestBody))
-	request.Header.Set("Authorization", "Bearer "+server.token)
+	request.Header.Set("Authorization", "Bearer "+token)
 	server.ServeHTTP(recorder, request)
 	if recorder.Code != wantStatus {
 		t.Fatalf("%s %s returned %d, want %d: %s", method, path, recorder.Code, wantStatus, strings.TrimSpace(recorder.Body.String()))

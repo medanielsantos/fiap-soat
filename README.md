@@ -37,9 +37,11 @@ O adaptador PostgreSQL usa GORM. Em desenvolvimento local, copie `.env.example` 
 ## Usuários administrativos
 
 - `make seed`: após `make migrate`, popula `roles`, `permissions` e `role_permissions`, e cria o administrador inicial a partir de `ADMIN_NAME`, `ADMIN_EMAIL` e `ADMIN_PASSWORD` em `.env`. Os vínculos ficam nas pivôs `user_roles` e `user_permissions`. A operação não altera usuários existentes.
-- `POST /api/v1/admin-users`: administrador ou gerente cria usuário; o campo `role` aceita `admin`, `manager` ou `attendant`. Gerentes só podem criar atendentes.
+- `POST /api/v1/admin-users`: administrador ou gerente cria usuário; `roles` aceita uma lista de perfis (`admin`, `manager`, `attendant`). Gerentes só podem criar atendentes.
+- `GET /api/v1/admin-users?page=1&per_page=20` e `GET /api/v1/admin-users/{id}`: lista paginada e consulta de usuários.
 - `PATCH /api/v1/admin-users/{id}/status`: altera o status para `active`, `inactive`, `pending`, `suspended`, `banned` ou `deleted`. Somente usuários ativos podem entrar; uma alteração de status bloqueante também invalida o acesso às rotas protegidas imediatamente.
-- `PATCH /api/v1/admin-users/{id}/role`: somente administrador altera o perfil.
+- `PUT /api/v1/admin-users/{id}/roles`: somente administrador substitui os perfis associados ao usuário.
+- `POST` e `DELETE /api/v1/admin-users/{id}/permissions/{permission}`: concede ou revoga uma permissão direta; a autorização final combina permissões diretas e herdadas dos perfis. Restrições do gerente e do atendente são aplicadas também às permissões diretas.
 - `DELETE /api/v1/admin-users/{id}`: somente administrador exclui logicamente um usuário; um administrador não pode excluir a própria conta.
 - `POST /api/v1/auth/login`: recebe `email` e `password`, retorna `access_token`, `expires_at` e o usuário.
 - `POST /api/v1/auth/password/forgot`: recebe `email` e envia o link de redefinição pelo adaptador SMTP. Retorna `202` sem revelar se o email existe.

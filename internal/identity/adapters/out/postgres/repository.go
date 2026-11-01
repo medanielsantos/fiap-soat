@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/medanielsantos/fiap-soat/internal/identity/application"
+	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -68,8 +69,10 @@ func (r *Repository) SeedAuthorization(ctx context.Context) error {
 		}
 		permissions := []struct{ ID, Name, Description string }{
 			{"users.create", "Create users", "Create administrative users."},
+			{"users.read", "Read users", "List and view administrative users."},
 			{"users.status.update", "Update user status", "Change administrative user status."},
 			{"users.role.assign", "Assign roles", "Assign administrative roles to users."},
+			{"users.permissions.assign", "Assign direct permissions", "Grant or revoke direct user permissions."},
 			{"users.delete", "Delete users", "Soft-delete administrative users."},
 			{"catalog.products.create", "Create catalog products", "Create services and parts."},
 			{"catalog.products.delete", "Delete catalog products", "Delete services and parts."},
@@ -84,8 +87,8 @@ func (r *Repository) SeedAuthorization(ctx context.Context) error {
 			return err
 		}
 		grants := map[string][]string{
-			"admin":     {"users.create", "users.status.update", "users.role.assign", "users.delete", "catalog.products.create", "catalog.products.delete", "catalog.products.price.update"},
-			"manager":   {"users.create", "users.status.update", "catalog.products.create", "catalog.products.delete", "catalog.products.price.update"},
+			"admin":     {"users.create", "users.read", "users.status.update", "users.role.assign", "users.permissions.assign", "users.delete", "catalog.products.create", "catalog.products.delete", "catalog.products.price.update"},
+			"manager":   {"users.create", "users.read", "users.status.update", "catalog.products.create", "catalog.products.delete", "catalog.products.price.update"},
 			"attendant": {},
 		}
 		for roleID, permissionIDs := range grants {
@@ -124,7 +127,12 @@ func createUser(tx *gorm.DB, user application.User) error {
 	if err := tx.Create(&userRow{ID: user.ID, Name: user.Name, Email: user.Email, Password: user.Password, Status: string(user.Status)}).Error; err != nil {
 		return err
 	}
-	return tx.Create(&userRoleRow{UserID: user.ID, RoleID: string(user.Role)}).Error
+	for _, role := range user.Roles {
+		if err := tx.Create(&userRoleRow{UserID: user.ID, RoleID: string(role)}).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *Repository) FindByEmail(ctx context.Context, email string) (application.User, error) {
@@ -141,6 +149,9 @@ func (r *Repository) FindByID(ctx context.Context, id string) (application.User,
 	var row userRow
 	err := r.db.WithContext(ctx).First(&row, "id = ?", id).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return application.User{}, application.ErrUserNotFound
+		}
 		return application.User{}, err
 	}
 	user := toUser(row)
@@ -148,12 +159,36 @@ func (r *Repository) FindByID(ctx context.Context, id string) (application.User,
 	return user, err
 }
 
+func (r *Repository) List(ctx context.Context, params pagination.Params) (pagination.Page[application.User], error) {
+	query := r.db.WithContext(ctx).Model(&userRow{}).Where("deleted_at IS NULL")
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return pagination.Page[application.User]{}, err
+	}
+	var rows []userRow
+	if err := query.Order("created_at DESC").Offset(params.Offset()).Limit(params.Limit()).Find(&rows).Error; err != nil {
+		return pagination.Page[application.User]{}, err
+	}
+	users := make([]application.User, 0, len(rows))
+	for _, row := range rows {
+		user := toUser(row)
+		if err := r.loadAuthorization(ctx, &user); err != nil {
+			return pagination.Page[application.User]{}, err
+		}
+		users = append(users, user)
+	}
+	return pagination.NewPage(users, params, total), nil
+}
+
 func (r *Repository) loadAuthorization(ctx context.Context, user *application.User) error {
 	var roleIDs []string
 	if err := r.db.WithContext(ctx).Table("user_roles").Where("user_id = ?", user.ID).Order("role_id").Pluck("role_id", &roleIDs).Error; err != nil {
 		return err
 	}
-	user.Role = primaryRole(roleIDs)
+	user.Roles = make([]application.UserRole, 0, len(roleIDs))
+	for _, roleID := range roleIDs {
+		user.Roles = append(user.Roles, application.UserRole(roleID))
+	}
 	var rows []struct {
 		PermissionID string `gorm:"column:permission_id"`
 	}
@@ -176,23 +211,29 @@ func (r *Repository) loadAuthorization(ctx context.Context, user *application.Us
 }
 
 func (r *Repository) GrantPermissionToUser(ctx context.Context, userID string, permission application.Permission) error {
-	return r.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&userPermissionRow{UserID: userID, PermissionID: string(permission)}).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Model(&userRow{}).Where("id = ? AND deleted_at IS NULL", userID).Count(&count).Error; err != nil {
+			return err
+		}
+		if count == 0 {
+			return application.ErrUserNotFound
+		}
+		return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&userPermissionRow{UserID: userID, PermissionID: string(permission)}).Error
+	})
 }
 
 func (r *Repository) RevokePermissionFromUser(ctx context.Context, userID string, permission application.Permission) error {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&userRow{}).Where("id = ? AND deleted_at IS NULL", userID).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return application.ErrUserNotFound
+	}
 	return r.db.WithContext(ctx).Where("user_id = ? AND permission_id = ?", userID, string(permission)).Delete(&userPermissionRow{}).Error
 }
 
-func primaryRole(roleIDs []string) application.UserRole {
-	for _, preferred := range []string{string(application.UserRoleAdmin), string(application.UserRoleManager), string(application.UserRoleAttendant)} {
-		for _, roleID := range roleIDs {
-			if roleID == preferred {
-				return application.UserRole(preferred)
-			}
-		}
-	}
-	return ""
-}
 func (r *Repository) UpdateStatus(ctx context.Context, id string, status application.UserStatus) error {
 	deletedAt := any(nil)
 	if status == application.UserStatusDeleted {
@@ -207,7 +248,7 @@ func (r *Repository) UpdateStatus(ctx context.Context, id string, status applica
 	}
 	return nil
 }
-func (r *Repository) UpdateRole(ctx context.Context, id string, role application.UserRole) error {
+func (r *Repository) UpdateRoles(ctx context.Context, id string, roles []application.UserRole) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(&userRow{}).Where("id = ? AND deleted_at IS NULL", id).Updates(map[string]any{"updated_at": time.Now()})
 		if result.Error != nil {
@@ -219,7 +260,12 @@ func (r *Repository) UpdateRole(ctx context.Context, id string, role application
 		if err := tx.Where("user_id = ?", id).Delete(&userRoleRow{}).Error; err != nil {
 			return err
 		}
-		return tx.Create(&userRoleRow{UserID: id, RoleID: string(role)}).Error
+		for _, role := range roles {
+			if err := tx.Create(&userRoleRow{UserID: id, RoleID: string(role)}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 func (r *Repository) Delete(ctx context.Context, id string) error {

@@ -12,6 +12,7 @@ import (
 	identityjwt "github.com/medanielsantos/fiap-soat/internal/identity/adapters/out/jwt"
 	identitypostgres "github.com/medanielsantos/fiap-soat/internal/identity/adapters/out/postgres"
 	"github.com/medanielsantos/fiap-soat/internal/identity/application"
+	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
 )
 
 type Handler struct {
@@ -29,8 +30,12 @@ func (h *Handler) RegisterRoutes(api *echo.Group) {
 	auth.POST("/password/forgot", h.forgot)
 	auth.POST("/password/reset", h.reset)
 	api.POST("/admin-users", h.createAdmin, h.RequireAuth(), h.RequirePermission(application.PermissionUsersCreate))
+	api.GET("/admin-users", h.listUsers, h.RequireAuth(), h.RequirePermission(application.PermissionUsersRead))
+	api.GET("/admin-users/:id", h.getUser, h.RequireAuth(), h.RequirePermission(application.PermissionUsersRead))
 	api.PATCH("/admin-users/:id/status", h.updateStatus, h.RequireAuth(), h.RequirePermission(application.PermissionUsersStatusUpdate))
-	api.PATCH("/admin-users/:id/role", h.updateRole, h.RequireAuth(), h.RequirePermission(application.PermissionUsersRoleAssign))
+	api.PUT("/admin-users/:id/roles", h.updateRoles, h.RequireAuth(), h.RequirePermission(application.PermissionUsersRoleAssign))
+	api.POST("/admin-users/:id/permissions/:permission", h.grantPermission, h.RequireAuth(), h.RequirePermission(application.PermissionUsersPermissionAssign))
+	api.DELETE("/admin-users/:id/permissions/:permission", h.revokePermission, h.RequireAuth(), h.RequirePermission(application.PermissionUsersPermissionAssign))
 	api.DELETE("/admin-users/:id", h.deleteUser, h.RequireAuth(), h.RequirePermission(application.PermissionUsersDelete))
 }
 
@@ -39,10 +44,11 @@ type credentials struct {
 	Password string `json:"password"`
 }
 type registerRequest struct {
-	Name     string               `json:"name"`
-	Email    string               `json:"email"`
-	Password string               `json:"password"`
-	Role     application.UserRole `json:"role"`
+	Name     string                 `json:"name"`
+	Email    string                 `json:"email"`
+	Password string                 `json:"password"`
+	Role     application.UserRole   `json:"role,omitempty"`
+	Roles    []application.UserRole `json:"roles,omitempty"`
 }
 type resetRequest struct {
 	Token    string `json:"token"`
@@ -52,8 +58,8 @@ type statusRequest struct {
 	Status application.UserStatus `json:"status"`
 }
 
-type roleRequest struct {
-	Role application.UserRole `json:"role"`
+type rolesRequest struct {
+	Roles []application.UserRole `json:"roles"`
 }
 
 func (h *Handler) createAdmin(c *echo.Context) error {
@@ -61,19 +67,43 @@ func (h *Handler) createAdmin(c *echo.Context) error {
 	if err := decode(c, &req); err != nil {
 		return problem(c, 400, "Invalid request")
 	}
-	requesterRole, _ := c.Get("role").(application.UserRole)
-	if req.Role == "" {
-		req.Role = application.UserRoleAttendant
+	roles, err := requestedRoles(req.Role, req.Roles)
+	if err != nil {
+		return problem(c, http.StatusBadRequest, "Invalid user roles")
 	}
-	if requesterRole == application.UserRoleManager && req.Role != application.UserRoleAttendant {
+	requesterRoles, _ := c.Get("roles").([]application.UserRole)
+	if hasRole(requesterRoles, application.UserRoleManager) && (len(roles) != 1 || roles[0] != application.UserRoleAttendant) {
 		return problem(c, http.StatusForbidden, "Managers can only create attendants")
 	}
-	user, err := h.service.Register(c.Request().Context(), req.Name, req.Email, req.Password, req.Role)
+	user, err := h.service.Register(c.Request().Context(), req.Name, req.Email, req.Password, roles)
 	if err != nil {
 		return h.registrationError(c, err)
 	}
 	return c.JSON(http.StatusCreated, user)
 }
+func (h *Handler) listUsers(c *echo.Context) error {
+	params, err := pagination.Parse(c.QueryParam("page"), c.QueryParam("per_page"))
+	if err != nil {
+		return problem(c, http.StatusBadRequest, "Invalid pagination")
+	}
+	page, err := h.service.ListUsers(c.Request().Context(), params)
+	if err != nil {
+		return problem(c, http.StatusInternalServerError, "Could not list users")
+	}
+	return c.JSON(http.StatusOK, pagination.NewResponse(page, c.Request().URL.String()))
+}
+
+func (h *Handler) getUser(c *echo.Context) error {
+	user, err := h.service.GetUser(c.Request().Context(), c.Param("id"))
+	if errors.Is(err, application.ErrUserNotFound) {
+		return problem(c, http.StatusNotFound, "User not found")
+	}
+	if err != nil {
+		return problem(c, http.StatusInternalServerError, "Could not retrieve user")
+	}
+	return c.JSON(http.StatusOK, user)
+}
+
 func (h *Handler) updateStatus(c *echo.Context) error {
 	var req statusRequest
 	if err := decode(c, &req); err != nil {
@@ -95,26 +125,72 @@ func (h *Handler) updateStatus(c *echo.Context) error {
 		return c.JSON(http.StatusOK, user)
 	}
 }
-func (h *Handler) updateRole(c *echo.Context) error {
-	var req roleRequest
+func (h *Handler) updateRoles(c *echo.Context) error {
+	var req rolesRequest
 	if err := decode(c, &req); err != nil {
 		return problem(c, 400, "Invalid request")
 	}
 	requestingUserID, _ := c.Get("user_id").(string)
-	user, err := h.service.SetRole(c.Request().Context(), c.Param("id"), requestingUserID, req.Role)
+	user, err := h.service.SetRoles(c.Request().Context(), c.Param("id"), requestingUserID, req.Roles)
 	switch {
 	case errors.Is(err, application.ErrUserNotFound):
 		return problem(c, http.StatusNotFound, "User not found")
 	case errors.Is(err, application.ErrCannotChangeOwnRole):
 		return problem(c, http.StatusConflict, "Cannot change your own role")
 	case err != nil:
-		if strings.Contains(err.Error(), "invalid user role") {
+		if errors.Is(err, application.ErrInvalidRole) {
 			return problem(c, http.StatusBadRequest, "Invalid user role")
 		}
 		return problem(c, http.StatusInternalServerError, "Could not update user role")
 	default:
 		return c.JSON(http.StatusOK, user)
 	}
+}
+
+func (h *Handler) grantPermission(c *echo.Context) error {
+	permission := application.Permission(c.Param("permission"))
+	if err := h.service.GrantPermission(c.Request().Context(), c.Param("id"), permission); err != nil {
+		return permissionError(c, err)
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *Handler) revokePermission(c *echo.Context) error {
+	permission := application.Permission(c.Param("permission"))
+	if err := h.service.RevokePermission(c.Request().Context(), c.Param("id"), permission); err != nil {
+		return permissionError(c, err)
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+func permissionError(c *echo.Context, err error) error {
+	switch {
+	case errors.Is(err, application.ErrInvalidPermission):
+		return problem(c, http.StatusBadRequest, "Invalid permission")
+	case errors.Is(err, application.ErrUserNotFound):
+		return problem(c, http.StatusNotFound, "User not found")
+	default:
+		return problem(c, http.StatusInternalServerError, "Could not update user permissions")
+	}
+}
+
+func requestedRoles(role application.UserRole, roles []application.UserRole) ([]application.UserRole, error) {
+	if role != "" {
+		if len(roles) != 0 {
+			return nil, application.ErrInvalidRole
+		}
+		return []application.UserRole{role}, nil
+	}
+	return roles, nil
+}
+
+func hasRole(roles []application.UserRole, role application.UserRole) bool {
+	for _, candidate := range roles {
+		if candidate == role {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *Handler) deleteUser(c *echo.Context) error {
@@ -185,12 +261,12 @@ func (h *Handler) RequireAuth() echo.MiddlewareFunc {
 			if err != nil {
 				return problem(c, 401, "Invalid access token")
 			}
-			role, permissions, active := h.service.ActivePermissions(c.Request().Context(), id)
+			roles, permissions, active := h.service.ActivePermissions(c.Request().Context(), id)
 			if !active {
 				return problem(c, 401, "Invalid access token")
 			}
 			c.Set("user_id", id)
-			c.Set("role", role)
+			c.Set("roles", roles)
 			c.Set("permissions", permissions)
 			return next(c)
 		}
