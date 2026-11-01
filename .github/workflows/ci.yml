@@ -44,10 +44,20 @@ jobs:
           DB_SSL_MODE=disable
           EOF
       - run: go test ./...
-      - run: make test-coverage
       - name: Remove temporary test credentials
         if: always()
         run: rm -f .env.testing
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make test-coverage
 
   lint:
     name: Lint
