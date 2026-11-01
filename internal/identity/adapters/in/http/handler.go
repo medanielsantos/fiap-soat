@@ -25,12 +25,13 @@ func NewHandler(service *application.Service, validator *identityjwt.Issuer) *Ha
 
 func (h *Handler) RegisterRoutes(api *echo.Group) {
 	auth := api.Group("/auth")
-	auth.POST("/register", h.registerFirst)
 	auth.POST("/login", h.login)
 	auth.POST("/password/forgot", h.forgot)
 	auth.POST("/password/reset", h.reset)
-	api.POST("/admin-users", h.createAdmin, h.RequireAuth())
-	api.PATCH("/admin-users/:id/status", h.updateStatus, h.RequireAuth())
+	api.POST("/admin-users", h.createAdmin, h.RequireAuth(), h.RequirePermission(application.PermissionUsersCreate))
+	api.PATCH("/admin-users/:id/status", h.updateStatus, h.RequireAuth(), h.RequirePermission(application.PermissionUsersStatusUpdate))
+	api.PATCH("/admin-users/:id/role", h.updateRole, h.RequireAuth(), h.RequirePermission(application.PermissionUsersRoleAssign))
+	api.DELETE("/admin-users/:id", h.deleteUser, h.RequireAuth(), h.RequirePermission(application.PermissionUsersDelete))
 }
 
 type credentials struct {
@@ -38,9 +39,10 @@ type credentials struct {
 	Password string `json:"password"`
 }
 type registerRequest struct {
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Name     string               `json:"name"`
+	Email    string               `json:"email"`
+	Password string               `json:"password"`
+	Role     application.UserRole `json:"role"`
 }
 type resetRequest struct {
 	Token    string `json:"token"`
@@ -50,23 +52,23 @@ type statusRequest struct {
 	Status application.UserStatus `json:"status"`
 }
 
-func (h *Handler) registerFirst(c *echo.Context) error {
-	var req registerRequest
-	if err := decode(c, &req); err != nil {
-		return problem(c, 400, "Invalid request")
-	}
-	user, err := h.service.Register(c.Request().Context(), req.Name, req.Email, req.Password, true)
-	if err != nil {
-		return h.registrationError(c, err)
-	}
-	return c.JSON(http.StatusCreated, user)
+type roleRequest struct {
+	Role application.UserRole `json:"role"`
 }
+
 func (h *Handler) createAdmin(c *echo.Context) error {
 	var req registerRequest
 	if err := decode(c, &req); err != nil {
 		return problem(c, 400, "Invalid request")
 	}
-	user, err := h.service.Register(c.Request().Context(), req.Name, req.Email, req.Password, false)
+	requesterRole, _ := c.Get("role").(application.UserRole)
+	if req.Role == "" {
+		req.Role = application.UserRoleAttendant
+	}
+	if requesterRole == application.UserRoleManager && req.Role != application.UserRoleAttendant {
+		return problem(c, http.StatusForbidden, "Managers can only create attendants")
+	}
+	user, err := h.service.Register(c.Request().Context(), req.Name, req.Email, req.Password, req.Role)
 	if err != nil {
 		return h.registrationError(c, err)
 	}
@@ -78,6 +80,9 @@ func (h *Handler) updateStatus(c *echo.Context) error {
 		return problem(c, 400, "Invalid request")
 	}
 	requestingUserID, _ := c.Get("user_id").(string)
+	if req.Status == application.UserStatusDeleted && !hasPermission(c, application.PermissionUsersDelete) {
+		return problem(c, http.StatusForbidden, "Insufficient permissions to delete users")
+	}
 	user, err := h.service.SetStatus(c.Request().Context(), c.Param("id"), requestingUserID, req.Status)
 	switch {
 	case errors.Is(err, application.ErrUserNotFound):
@@ -90,10 +95,43 @@ func (h *Handler) updateStatus(c *echo.Context) error {
 		return c.JSON(http.StatusOK, user)
 	}
 }
+func (h *Handler) updateRole(c *echo.Context) error {
+	var req roleRequest
+	if err := decode(c, &req); err != nil {
+		return problem(c, 400, "Invalid request")
+	}
+	requestingUserID, _ := c.Get("user_id").(string)
+	user, err := h.service.SetRole(c.Request().Context(), c.Param("id"), requestingUserID, req.Role)
+	switch {
+	case errors.Is(err, application.ErrUserNotFound):
+		return problem(c, http.StatusNotFound, "User not found")
+	case errors.Is(err, application.ErrCannotChangeOwnRole):
+		return problem(c, http.StatusConflict, "Cannot change your own role")
+	case err != nil:
+		if strings.Contains(err.Error(), "invalid user role") {
+			return problem(c, http.StatusBadRequest, "Invalid user role")
+		}
+		return problem(c, http.StatusInternalServerError, "Could not update user role")
+	default:
+		return c.JSON(http.StatusOK, user)
+	}
+}
+
+func (h *Handler) deleteUser(c *echo.Context) error {
+	requestingUserID, _ := c.Get("user_id").(string)
+	if err := h.service.DeleteUser(c.Request().Context(), c.Param("id"), requestingUserID); err != nil {
+		if errors.Is(err, application.ErrCannotDeleteSelf) {
+			return problem(c, http.StatusConflict, "Cannot delete your own user")
+		}
+		if errors.Is(err, application.ErrUserNotFound) {
+			return problem(c, http.StatusNotFound, "User not found")
+		}
+		return problem(c, http.StatusInternalServerError, "Could not delete user")
+	}
+	return c.NoContent(http.StatusNoContent)
+}
 func (h *Handler) registrationError(c *echo.Context, err error) error {
 	switch {
-	case errors.Is(err, application.ErrRegistrationClosed):
-		return problem(c, 409, "Initial registration is closed")
 	case identitypostgres.IsUniqueViolation(err):
 		return problem(c, 409, "Email already registered")
 	default:
@@ -147,13 +185,37 @@ func (h *Handler) RequireAuth() echo.MiddlewareFunc {
 			if err != nil {
 				return problem(c, 401, "Invalid access token")
 			}
-			if !h.service.IsActiveUser(c.Request().Context(), id) {
+			role, permissions, active := h.service.ActivePermissions(c.Request().Context(), id)
+			if !active {
 				return problem(c, 401, "Invalid access token")
 			}
 			c.Set("user_id", id)
+			c.Set("role", role)
+			c.Set("permissions", permissions)
 			return next(c)
 		}
 	}
+}
+
+func (h *Handler) RequirePermission(permission application.Permission) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			if !hasPermission(c, permission) {
+				return problem(c, http.StatusForbidden, "Insufficient permissions")
+			}
+			return next(c)
+		}
+	}
+}
+
+func hasPermission(c *echo.Context, permission application.Permission) bool {
+	permissions, _ := c.Get("permissions").([]application.Permission)
+	for _, candidate := range permissions {
+		if candidate == permission {
+			return true
+		}
+	}
+	return false
 }
 func decode(c *echo.Context, target any) error {
 	d := json.NewDecoder(c.Request().Body)

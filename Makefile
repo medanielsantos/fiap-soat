@@ -1,4 +1,4 @@
-.PHONY: run migrate test test-unit test-integration test-coverage lint build
+.PHONY: run migrate seed test test-unit test-integration test-coverage lint build
 
 GOLANGCI_LINT ?= $(shell command -v golangci-lint 2>/dev/null || printf '%s/bin/golangci-lint' "$$(go env GOPATH)")
 
@@ -7,6 +7,9 @@ run:
 
 migrate:
 	go run ./cmd/migrate up
+
+seed:
+	go run ./cmd/seed
 
 test:
 	go test ./...

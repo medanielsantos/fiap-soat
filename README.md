@@ -36,13 +36,16 @@ O adaptador PostgreSQL usa GORM. Em desenvolvimento local, copie `.env.example` 
 
 ## Usuários administrativos
 
-- `POST /api/v1/auth/register`: cria o primeiro administrador; após o primeiro cadastro, a rota retorna `409`. Novos administradores são criados por `POST /api/v1/admin-users` com um JWT válido.
+- `make seed`: após `make migrate`, popula `roles`, `permissions` e `role_permissions`, e cria o administrador inicial a partir de `ADMIN_NAME`, `ADMIN_EMAIL` e `ADMIN_PASSWORD` em `.env`. Os vínculos ficam nas pivôs `user_roles` e `user_permissions`. A operação não altera usuários existentes.
+- `POST /api/v1/admin-users`: administrador ou gerente cria usuário; o campo `role` aceita `admin`, `manager` ou `attendant`. Gerentes só podem criar atendentes.
 - `PATCH /api/v1/admin-users/{id}/status`: altera o status para `active`, `inactive`, `pending`, `suspended`, `banned` ou `deleted`. Somente usuários ativos podem entrar; uma alteração de status bloqueante também invalida o acesso às rotas protegidas imediatamente.
+- `PATCH /api/v1/admin-users/{id}/role`: somente administrador altera o perfil.
+- `DELETE /api/v1/admin-users/{id}`: somente administrador exclui logicamente um usuário; um administrador não pode excluir a própria conta.
 - `POST /api/v1/auth/login`: recebe `email` e `password`, retorna `access_token`, `expires_at` e o usuário.
 - `POST /api/v1/auth/password/forgot`: recebe `email` e envia o link de redefinição pelo adaptador SMTP. Retorna `202` sem revelar se o email existe.
 - `POST /api/v1/auth/password/reset`: recebe `token` e `password`; o token expira em 30 minutos e só pode ser usado uma vez.
 
-Senhas precisam ter entre 12 e 72 bytes e o hash bcrypt fica na coluna `password`. Apenas usuários com status `active` autenticam. Rotas administrativas recebem `Authorization: Bearer <access_token>`; o `user_id` das movimentações da OS vem do JWT validado.
+Senhas precisam ter entre 12 e 72 bytes e o hash bcrypt fica na coluna `password`. Apenas usuários com status `active` autenticam. Perfis: `admin` pode executar todas as ações; `manager` não pode excluir usuários; `attendant` não pode excluir serviços ou peças, nem alterar preços. Rotas administrativas recebem `Authorization: Bearer <access_token>`; o `user_id` das movimentações da OS vem do JWT validado.
 
 ## Clientes
 

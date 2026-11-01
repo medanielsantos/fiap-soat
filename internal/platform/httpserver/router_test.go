@@ -86,8 +86,11 @@ func TestRouterRegistersVersionedRoutes(t *testing.T) {
 	}
 	for _, route := range []string{
 		"GET /health",
-		"POST /api/v1/auth/register",
 		"POST /api/v1/auth/login",
+		"POST /api/v1/admin-users",
+		"PATCH /api/v1/admin-users/:id/status",
+		"PATCH /api/v1/admin-users/:id/role",
+		"DELETE /api/v1/admin-users/:id",
 		"POST /api/v1/customers",
 		"GET /api/v1/customers",
 		"GET /api/v1/customers/:id",

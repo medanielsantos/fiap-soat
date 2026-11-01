@@ -142,13 +142,16 @@ func newTestServer(t *testing.T) *testServer {
 		t.Fatal(err)
 	}
 	identityStore := identitypostgres.NewRepository(db)
-	if err := identityStore.Create(context.Background(), identityapp.User{ID: testUserID, Name: "Integration Admin", Email: "admin@example.test", Password: "unused", Status: identityapp.UserStatusActive}); err != nil {
+	if err := identityStore.SeedAuthorization(context.Background()); err != nil {
+		t.Fatalf("seed roles and permissions: %v", err)
+	}
+	if err := identityStore.Create(context.Background(), identityapp.User{ID: testUserID, Name: "Integration Admin", Email: "admin@example.test", Password: "unused", Status: identityapp.UserStatusActive, Role: identityapp.UserRoleAdmin}); err != nil {
 		t.Fatalf("seed integration admin: %v", err)
 	}
 	identityHandler := identityhttp.NewHandler(identityapp.NewService(identityStore, platformid.UUIDGenerator{}, issuer, nil, ""), issuer)
 	v1 := engine.Group("/api/v1")
 	v1.Use(identityHandler.RequireAuth())
-	cataloghttp.NewHandler(catalogService).RegisterRoutes(v1)
+	cataloghttp.NewHandler(catalogService).RegisterRoutes(v1, identityHandler.RequirePermission(identityapp.PermissionProductsCreate), identityHandler.RequirePermission(identityapp.PermissionProductsDelete))
 	workorderhttp.NewHandler(workService).RegisterRoutes(v1.Group("/work-orders"))
 	return &testServer{Echo: engine, token: token}
 }

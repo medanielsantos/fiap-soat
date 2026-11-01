@@ -23,9 +23,13 @@ var (
 	ErrInvalidStatus        = errors.New("invalid user status")
 	ErrUserNotFound         = errors.New("user not found")
 	ErrCannotDeactivateSelf = errors.New("cannot deactivate the current user")
+	ErrCannotDeleteSelf     = errors.New("cannot delete the current user")
+	ErrCannotChangeOwnRole  = errors.New("cannot change the current user's role")
 )
 
 type UserStatus string
+type UserRole string
+type Permission string
 
 const (
 	UserStatusActive    UserStatus = "active"
@@ -36,9 +40,27 @@ const (
 	UserStatusDeleted   UserStatus = "deleted"
 )
 
+const (
+	PermissionUsersCreate         Permission = "users.create"
+	PermissionUsersStatusUpdate   Permission = "users.status.update"
+	PermissionUsersRoleAssign     Permission = "users.role.assign"
+	PermissionUsersDelete         Permission = "users.delete"
+	PermissionProductsCreate      Permission = "catalog.products.create"
+	PermissionProductsDelete      Permission = "catalog.products.delete"
+	PermissionProductsPriceUpdate Permission = "catalog.products.price.update"
+)
+
+const (
+	UserRoleAdmin     UserRole = "admin"
+	UserRoleManager   UserRole = "manager"
+	UserRoleAttendant UserRole = "attendant"
+)
+
 type User struct {
 	ID, Name, Email, Password string
 	Status                    UserStatus
+	Role                      UserRole
+	Permissions               []Permission
 	DeletedAt                 *time.Time
 }
 
@@ -48,6 +70,8 @@ type Store interface {
 	FindByEmail(context.Context, string) (User, error)
 	FindByID(context.Context, string) (User, error)
 	UpdateStatus(context.Context, string, UserStatus) error
+	UpdateRole(context.Context, string, UserRole) error
+	Delete(context.Context, string) error
 	CreateReset(context.Context, string, string, time.Time) error
 	ResetPassword(context.Context, string, string, time.Time) error
 }
@@ -80,6 +104,7 @@ type UserView struct {
 	Name   string     `json:"name"`
 	Email  string     `json:"email"`
 	Status UserStatus `json:"status"`
+	Role   UserRole   `json:"role"`
 }
 type Session struct {
 	User        UserView  `json:"user"`
@@ -87,30 +112,48 @@ type Session struct {
 	ExpiresAt   time.Time `json:"expires_at"`
 }
 
-func (s *Service) Register(ctx context.Context, name, email, password string, first bool) (UserView, error) {
-	name, email = strings.TrimSpace(name), strings.ToLower(strings.TrimSpace(email))
-	parsedEmail, emailErr := mail.ParseAddress(email)
-	if name == "" || len(name) > 120 || emailErr != nil || parsedEmail.Address != email || len(email) > 254 || strings.ContainsAny(email, "\r\n") || len(password) < 12 || len(password) > 72 {
-		return UserView{}, errors.New("invalid user details or password")
+func (s *Service) Register(ctx context.Context, name, email, password string, role UserRole) (UserView, error) {
+	if !validRole(role) {
+		return UserView{}, errors.New("invalid user role")
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	user, err := s.newUser(ctx, name, email, password, role)
 	if err != nil {
 		return UserView{}, err
 	}
-	id, err := s.ids.NewID(ctx)
-	if err != nil {
-		return UserView{}, err
-	}
-	user := User{ID: id, Name: name, Email: email, Password: string(hash), Status: UserStatusActive}
-	if first {
-		err = s.store.CreateFirst(ctx, user)
-	} else {
-		err = s.store.Create(ctx, user)
-	}
-	if err != nil {
+	if err := s.store.Create(ctx, user); err != nil {
 		return UserView{}, err
 	}
 	return view(user), nil
+}
+
+func (s *Service) SeedAdmin(ctx context.Context, name, email, password string) (bool, error) {
+	user, err := s.newUser(ctx, name, email, password, UserRoleAdmin)
+	if err != nil {
+		return false, err
+	}
+	if err := s.store.CreateFirst(ctx, user); errors.Is(err, ErrRegistrationClosed) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *Service) newUser(ctx context.Context, name, email, password string, role UserRole) (User, error) {
+	name, email = strings.TrimSpace(name), strings.ToLower(strings.TrimSpace(email))
+	parsedEmail, emailErr := mail.ParseAddress(email)
+	if name == "" || len(name) > 120 || emailErr != nil || parsedEmail.Address != email || len(email) > 254 || strings.ContainsAny(email, "\r\n") || len(password) < 12 || len(password) > 72 {
+		return User{}, errors.New("invalid user details or password")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return User{}, err
+	}
+	id, err := s.ids.NewID(ctx)
+	if err != nil {
+		return User{}, err
+	}
+	return User{ID: id, Name: name, Email: email, Password: string(hash), Status: UserStatusActive, Role: role}, nil
 }
 
 func (s *Service) Login(ctx context.Context, email, password string) (Session, error) {
@@ -125,12 +168,15 @@ func (s *Service) Login(ctx context.Context, email, password string) (Session, e
 	return Session{User: view(user), AccessToken: token, ExpiresAt: expiry}, nil
 }
 
-func (s *Service) IsActiveUser(ctx context.Context, id string) bool {
+func (s *Service) ActivePermissions(ctx context.Context, id string) (UserRole, []Permission, bool) {
 	if s.store == nil {
-		return false
+		return "", nil, false
 	}
 	user, err := s.store.FindByID(ctx, id)
-	return err == nil && user.Status == UserStatusActive && user.DeletedAt == nil
+	if err != nil || user.Status != UserStatusActive || user.DeletedAt != nil {
+		return "", nil, false
+	}
+	return user.Role, user.Permissions, true
 }
 
 func (s *Service) SetStatus(ctx context.Context, id, requestingUserID string, status UserStatus) (UserView, error) {
@@ -148,6 +194,30 @@ func (s *Service) SetStatus(ctx context.Context, id, requestingUserID string, st
 		return UserView{}, err
 	}
 	return view(user), nil
+}
+
+func (s *Service) SetRole(ctx context.Context, id, requestingUserID string, role UserRole) (UserView, error) {
+	if !validRole(role) {
+		return UserView{}, errors.New("invalid user role")
+	}
+	if id == requestingUserID && role != UserRoleAdmin {
+		return UserView{}, ErrCannotChangeOwnRole
+	}
+	if err := s.store.UpdateRole(ctx, id, role); err != nil {
+		return UserView{}, err
+	}
+	user, err := s.store.FindByID(ctx, id)
+	if err != nil {
+		return UserView{}, err
+	}
+	return view(user), nil
+}
+
+func (s *Service) DeleteUser(ctx context.Context, id, requestingUserID string) error {
+	if id == requestingUserID {
+		return ErrCannotDeleteSelf
+	}
+	return s.store.Delete(ctx, id)
 }
 
 func (s *Service) RequestPasswordReset(ctx context.Context, email string) error {
@@ -192,6 +262,10 @@ func (s *Service) ResetPassword(ctx context.Context, token, password string) err
 	return s.store.ResetPassword(ctx, hex.EncodeToString(digest[:]), string(hash), s.now())
 }
 
+func validRole(role UserRole) bool {
+	return role == UserRoleAdmin || role == UserRoleManager || role == UserRoleAttendant
+}
+
 func view(user User) UserView {
-	return UserView{ID: user.ID, Name: user.Name, Email: user.Email, Status: user.Status}
+	return UserView{ID: user.ID, Name: user.Name, Email: user.Email, Status: user.Status, Role: user.Role}
 }

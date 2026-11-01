@@ -22,6 +22,9 @@ type Config struct {
 	SMTPPassword     string
 	SMTPFrom         string
 	PasswordResetURL string
+	AdminName        string
+	AdminEmail       string
+	AdminPassword    string
 }
 
 func Load() Config {
@@ -46,6 +49,9 @@ func Load() Config {
 		SMTPPassword:     os.Getenv("SMTP_PASSWORD"),
 		SMTPFrom:         os.Getenv("SMTP_FROM"),
 		PasswordResetURL: os.Getenv("PASSWORD_RESET_URL"),
+		AdminName:        os.Getenv("ADMIN_NAME"),
+		AdminEmail:       os.Getenv("ADMIN_EMAIL"),
+		AdminPassword:    os.Getenv("ADMIN_PASSWORD"),
 	}
 }
 

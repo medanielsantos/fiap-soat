@@ -6,6 +6,7 @@ import (
 	"github.com/labstack/echo/v5"
 	customerhttp "github.com/medanielsantos/fiap-soat/internal/customer/adapters/in/http"
 	identityhttp "github.com/medanielsantos/fiap-soat/internal/identity/adapters/in/http"
+	identityapp "github.com/medanielsantos/fiap-soat/internal/identity/application"
 	cataloghttp "github.com/medanielsantos/fiap-soat/internal/servicecatalog/adapters/in/http"
 	vehiclehttp "github.com/medanielsantos/fiap-soat/internal/vehicle/adapters/in/http"
 	workorderhttp "github.com/medanielsantos/fiap-soat/internal/workorder/adapters/in/http"
@@ -42,6 +43,6 @@ func (router *Router) Register() {
 	admin.Use(router.identityHandler.RequireAuth())
 	router.customerHandler.RegisterRoutes(admin.Group("/customers"))
 	router.vehicleHandler.RegisterRoutes(admin.Group("/vehicles"))
-	router.catalogHandler.RegisterRoutes(admin)
+	router.catalogHandler.RegisterRoutes(admin, router.identityHandler.RequirePermission(identityapp.PermissionProductsCreate), router.identityHandler.RequirePermission(identityapp.PermissionProductsDelete))
 	router.workOrderHandler.RegisterRoutes(admin.Group("/work-orders"))
 }

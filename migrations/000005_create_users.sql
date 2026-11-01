@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE admin_users (
+CREATE TABLE users (
     id TEXT PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
     email VARCHAR(254) NOT NULL,
@@ -14,12 +14,12 @@ CREATE TABLE admin_users (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
 );
-CREATE UNIQUE INDEX ux_admin_users_email ON admin_users (email) WHERE deleted_at IS NULL AND status <> 'deleted';
-CREATE INDEX ix_admin_users_deleted_at ON admin_users(deleted_at);
+CREATE UNIQUE INDEX ux_users_email ON users (email) WHERE deleted_at IS NULL AND status <> 'deleted';
+CREATE INDEX ix_users_deleted_at ON users(deleted_at);
 
 CREATE TABLE password_reset_tokens (
     token_hash CHAR(64) PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     expires_at TIMESTAMPTZ NOT NULL,
     used_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -28,4 +28,4 @@ CREATE INDEX ix_password_reset_user ON password_reset_tokens(user_id);
 
 -- +goose Down
 DROP TABLE password_reset_tokens;
-DROP TABLE admin_users;
+DROP TABLE users;
