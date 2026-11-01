@@ -41,8 +41,9 @@ import (
 
 const (
 	testCustomerID = "integration-customer"
+	testClientID   = testCustomerID
 	testVehicleID  = "integration-vehicle"
-	testActorID    = "integration-user"
+	testUserID     = "integration-user"
 )
 
 type testServer struct {
@@ -142,22 +143,22 @@ func seedOwnerRecords(db *gorm.DB) error {
 
 func createPart(t *testing.T, server *testServer, sku string, initial int64) string {
 	t.Helper()
-	body := map[string]any{"sku": sku, "internal_code": sku, "name": "Brake pad", "unit": "piece", "purchase_price_in_cents": 100, "sale_price_in_cents": 250, "initial_stock": initial, "created_by": testActorID}
+	body := map[string]any{"sku": sku, "internal_code": sku, "name": "Brake pad", "unit": "piece", "purchase_price_in_cents": 100, "sale_price_in_cents": 250, "initial_stock": initial, "created_by": testUserID}
 	return call(t, server, http.MethodPost, "/api/v1/parts", body, http.StatusCreated)["id"].(string)
 }
 
 func createOrder(t *testing.T, server *testServer) string {
 	t.Helper()
-	body := map[string]any{"customer_id": testCustomerID, "vehicle_id": testVehicleID, "actor_id": testActorID}
+	body := map[string]any{"customer_id": testCustomerID, "vehicle_id": testVehicleID, "user_id": testUserID}
 	return call(t, server, http.MethodPost, "/api/v1/work-orders", body, http.StatusCreated)["id"].(string)
 }
 
 func prepareOrder(t *testing.T, server *testServer, partID string, quantity int64) string {
 	t.Helper()
 	id := createOrder(t, server)
-	call(t, server, http.MethodPost, "/api/v1/work-orders/"+id+"/diagnosis", map[string]any{"diagnosis": "Replace part", "actor_id": testActorID}, http.StatusOK)
-	call(t, server, http.MethodPost, "/api/v1/work-orders/"+id+"/items", map[string]any{"type": "part", "catalog_id": partID, "quantity": quantity, "actor_id": testActorID}, http.StatusCreated)
-	call(t, server, http.MethodPost, "/api/v1/work-orders/"+id+"/quotes", map[string]any{"actor_id": testActorID}, http.StatusOK)
+	call(t, server, http.MethodPost, "/api/v1/work-orders/"+id+"/diagnosis", map[string]any{"diagnosis": "Replace part", "user_id": testUserID}, http.StatusOK)
+	call(t, server, http.MethodPost, "/api/v1/work-orders/"+id+"/items", map[string]any{"type": "part", "catalog_id": partID, "quantity": quantity, "user_id": testUserID}, http.StatusCreated)
+	call(t, server, http.MethodPost, "/api/v1/work-orders/"+id+"/quotes", map[string]any{"user_id": testUserID}, http.StatusOK)
 	return id
 }
 

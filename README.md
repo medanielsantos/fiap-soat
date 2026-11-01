@@ -70,14 +70,14 @@ As tabelas de clientes, veículos, serviços e peças têm `created_by` e `updat
 - `POST /api/v1/work-orders` abre uma OS para `customer_id` e `vehicle_id`; valida cliente ativo e vínculo do veículo.
 - `GET /api/v1/work-orders?status=received&page=1&per_page=20` lista OS; `GET /api/v1/work-orders/{id}` consulta OS, itens, versões de orçamento e histórico.
 - `POST /api/v1/work-orders/{id}/diagnosis` grava `diagnosis` e move a OS para diagnóstico.
-- `POST /api/v1/work-orders/{id}/items` inclui snapshot de serviço ou peça (`type`, `catalog_id`, `quantity`); `DELETE /api/v1/work-orders/{id}/items/{item_id}?actor_id=...` remove item antes do envio do orçamento.
+- `POST /api/v1/work-orders/{id}/items` inclui snapshot de serviço ou peça (`type`, `catalog_id`, `quantity`); `DELETE /api/v1/work-orders/{id}/items/{item_id}?user_id=...` remove item antes do envio do orçamento.
 - `POST /api/v1/work-orders/{id}/quotes` cria uma versão imutável do orçamento.
-- `POST /api/v1/work-orders/{id}/quotes/approve` registra aprovação e reserva as peças atomicamente; falta de saldo retorna `409` sem aprovar.
-- `POST /api/v1/work-orders/{id}/quotes/reject` registra rejeição e retorna a OS para diagnóstico sem movimentar estoque.
+- `POST /api/v1/work-orders/{id}/quotes/approve` recebe `client_id`, registra aprovação e reserva as peças atomicamente; falta de saldo retorna `409` sem aprovar.
+- `POST /api/v1/work-orders/{id}/quotes/reject` recebe `client_id`, registra rejeição e retorna a OS para diagnóstico sem movimentar estoque.
 - `POST /api/v1/work-orders/{id}/consumptions` recebe `part_id` e `quantity`; reduz saldo físico e reserva atomicamente.
 - `POST /api/v1/work-orders/{id}/complete` finaliza após consumir todas as peças. `POST /api/v1/work-orders/{id}/deliver` registra a entrega.
 
-As rotas de transição recebem `actor_id`. O JWT administrativo e a autorização de cliente ainda serão implementados; neste momento, o identificador é informado no corpo da requisição.
+As ações administrativas recebem `user_id`; aprovação e rejeição de orçamento recebem `client_id`. O JWT administrativo e a autorização de cliente ainda serão implementados; neste momento, o identificador é informado no corpo da requisição. O histórico da OS armazena exatamente um dos identificadores por evento.
 
 ## Estrutura Go
 

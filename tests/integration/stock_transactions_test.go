@@ -12,7 +12,7 @@ func TestInsufficientStockRollsBackQuoteApproval(t *testing.T) {
 	server := newTestServer(t)
 	partID := createPart(t, server, "LOW-1", 1)
 	orderID := prepareOrder(t, server, partID, 2)
-	call(t, server, http.MethodPost, "/api/v1/work-orders/"+orderID+"/quotes/approve", map[string]any{"actor_id": testActorID}, http.StatusConflict)
+	call(t, server, http.MethodPost, "/api/v1/work-orders/"+orderID+"/quotes/approve", map[string]any{"client_id": testClientID}, http.StatusConflict)
 	order := call(t, server, http.MethodGet, "/api/v1/work-orders/"+orderID, nil, http.StatusOK)
 	if order["status"] != "awaiting_approval" {
 		t.Fatalf("status after failed approval = %v, want awaiting_approval", order["status"])
@@ -35,7 +35,7 @@ func TestConcurrentApprovalsCannotOversellStock(t *testing.T) {
 		go func(id string) {
 			defer wg.Done()
 			recorder := httptest.NewRecorder()
-			request := httptest.NewRequest(http.MethodPost, "/api/v1/work-orders/"+id+"/quotes/approve", bytes.NewBufferString(`{"actor_id":"integration-user"}`))
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/work-orders/"+id+"/quotes/approve", bytes.NewBufferString(`{"client_id":"integration-customer"}`))
 			server.ServeHTTP(recorder, request)
 			statuses <- recorder.Code
 		}(orderID)
