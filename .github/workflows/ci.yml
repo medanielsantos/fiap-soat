@@ -22,7 +22,7 @@ jobs:
       - run: make test-unit
 
   integration:
-    name: PostgreSQL Integration Tests
+    name: Integration Tests
     runs-on: ubuntu-latest
     services:
       postgres:
