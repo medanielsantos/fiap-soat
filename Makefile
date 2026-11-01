@@ -1,4 +1,4 @@
-.PHONY: run migrate test lint build
+.PHONY: run migrate test test-integration test-coverage lint build
 
 run:
 	go run ./cmd/api
@@ -8,6 +8,12 @@ migrate:
 
 test:
 	go test ./...
+
+test-integration:
+	go test ./tests/integration
+
+test-coverage:
+	go test -cover ./internal/workorder/domain ./internal/servicecatalog/domain
 
 lint:
 	golangci-lint run ./...

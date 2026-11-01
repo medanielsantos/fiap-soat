@@ -15,7 +15,7 @@ type Config struct {
 }
 
 func Load() Config {
-	loadDotEnv(".env")
+	LoadDotEnvFile(".env")
 	port := os.Getenv("APP_HTTP_PORT")
 	if port == "" {
 		port = defaultHTTPPort
@@ -28,6 +28,18 @@ func Load() Config {
 		HTTPAddress: ":" + port,
 		DatabaseURL: databaseURL,
 	}
+}
+
+// LoadDotEnvFile loads missing environment variables from the supplied file.
+// Variables already present in the process environment take precedence.
+func LoadDotEnvFile(path string) {
+	loadDotEnv(path)
+}
+
+// PostgresURLFromEnvironment builds a PostgreSQL URL from DB_* variables,
+// without consulting DATABASE_URL. This is useful for isolated test configs.
+func PostgresURLFromEnvironment() string {
+	return postgresURLFromEnvironment()
 }
 
 func postgresURLFromEnvironment() string {

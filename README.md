@@ -59,6 +59,7 @@ A placa aceita os formatos antigo (`ABC1234`) e Mercosul (`ABC1D23`), com ou sem
 - `/api/v1/services`: `POST`, `GET` paginado, `GET /{id}`, `PUT /{id}` e `DELETE /{id}` para serviços. Cada serviço tem `internal_code`, `sale_price_in_cents` e `estimated_duration_minutes`.
 - `/api/v1/parts`: mesmos endpoints para peças e insumos. Cada peça tem `sku`, `internal_code`, `purchase_price_in_cents`, `sale_price_in_cents` e `unit`. No cadastro, `initial_stock` inicia o saldo (padrão `0`); atualizações não alteram o saldo.
 - `POST /api/v1/parts/{id}/stock-movements`: registra entrada (`{"type":"entry","quantity":5,"created_by":"user-id"}`) ou saída (`{"type":"exit","quantity":2,"created_by":"user-id"}`), com `description` e `created_by` opcionais. Saídas acima do saldo disponível retornam `409`.
+- `GET /api/v1/parts/{id}/stock-movements?page=1&per_page=20`: consulta o histórico paginado de entradas, saídas, reservas e consumos vinculados a OS. O saldo informado separa quantidade física, reservada e disponível. Peças com saldo ou reserva não podem ser excluídas.
 
 Todos os valores monetários usam centavos inteiros (`*_price_in_cents`). SKU e códigos internos são únicos entre registros ativos. Entradas, saídas, reservas e consumos são registrados em histórico imutável.
 
@@ -154,7 +155,7 @@ PostgreSQL foi escolhido por transações ACID, constraints e integridade refere
 
 ## Segurança e qualidade
 
-Rotas administrativas exigem JWT; o acesso do cliente ao acompanhamento é autorizado separadamente e limitado à sua OS. Planejar testes unitários do domínio e casos de uso, testes de integração com PostgreSQL e cobertura mínima de 80% nos domínios críticos. Não há comandos de execução até a implementação da aplicação.
+Rotas administrativas exigem JWT; o acesso do cliente ao acompanhamento é autorizado separadamente e limitado à sua OS. A meta é cobertura mínima de 80% nos domínios críticos. Execute `make test` para os testes unitários. Para testes PostgreSQL locais, copie `.env.testing.example` para `.env.testing`, preencha as credenciais de uma base dedicada e execute `make test-integration`; no CI, injete `TEST_DATABASE_URL` ou as variáveis `DB_*` como secrets. Para medir a cobertura dos domínios críticos, use `make test-coverage`.
 
 ## Documentação técnica
 

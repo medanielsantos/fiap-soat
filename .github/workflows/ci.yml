@@ -13,13 +13,40 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: fiap_test
+          POSTGRES_USER: fiap_test
+          POSTGRES_PASSWORD: fiap_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fiap_test -d fiap_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
+      - name: Configure integration test database
+        run: |
+          cat > .env.testing <<'EOF'
+          DB_HOST=localhost
+          DB_PORT=5432
+          DB_NAME=fiap_test
+          DB_USER=fiap_test
+          DB_PASSWORD=fiap_test
+          DB_SSL_MODE=disable
+          EOF
       - run: go test ./...
+      - name: Remove temporary test credentials
+        if: always()
+        run: rm -f .env.testing
 
   lint:
     name: Lint

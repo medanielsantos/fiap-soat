@@ -147,12 +147,6 @@ func (r *Repository) Save(ctx context.Context, o domain.WorkOrder, event domain.
 	if err := r.saveItems(db, o); err != nil {
 		return err
 	}
-	if err := db.Where("quote_id IN (?)", db.Model(&quoteRecord{}).Select("id").Where("work_order_id = ?", o.ID)).Delete(&quoteItemRecord{}).Error; err != nil {
-		return err
-	}
-	if err := db.Where("work_order_id = ?", o.ID).Delete(&quoteRecord{}).Error; err != nil {
-		return err
-	}
 	if err := r.saveQuotes(db, o); err != nil {
 		return err
 	}
@@ -208,6 +202,17 @@ func (r *Repository) saveItems(db *gorm.DB, o domain.WorkOrder) error {
 }
 func (r *Repository) saveQuotes(db *gorm.DB, o domain.WorkOrder) error {
 	for _, q := range o.Quotes {
+		var existing quoteRecord
+		err := db.First(&existing, "id = ?", q.ID).Error
+		if err == nil {
+			if err := db.Model(&quoteRecord{}).Where("id = ?", q.ID).Updates(map[string]any{"decision": q.Decision, "decided_by": q.DecidedBy, "decided_at": q.DecidedAt}).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
 		row := quoteRecord{ID: q.ID, WorkOrderID: o.ID, Version: q.Version, TotalInCents: q.TotalInCents, Decision: q.Decision, CreatedBy: q.CreatedBy, DecidedBy: q.DecidedBy, DecidedAt: q.DecidedAt}
 		if e := db.Create(&row).Error; e != nil {
 			return e

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v5"
 	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
@@ -29,6 +30,7 @@ func (h *Handler) RegisterRoutes(g *echo.Group) {
 	p.PUT("/:id", h.updatePart)
 	p.DELETE("/:id", h.deletePart)
 	p.POST("/:id/stock-movements", h.moveStock)
+	p.GET("/:id/stock-movements", h.listStockMovements)
 }
 
 type serviceDTO struct {
@@ -84,6 +86,16 @@ type movementInput struct {
 	Quantity    int64               `json:"quantity"`
 	Description string              `json:"description"`
 	PerformedBy string              `json:"created_by"`
+}
+type movementDTO struct {
+	ID          string    `json:"id"`
+	PartID      string    `json:"part_id"`
+	Type        string    `json:"type"`
+	Quantity    int64     `json:"quantity"`
+	Description string    `json:"description"`
+	CreatedBy   string    `json:"created_by"`
+	WorkOrderID *string   `json:"work_order_id,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 type problem struct {
 	Type     string `json:"type"`
@@ -213,6 +225,24 @@ func (h *Handler) moveStock(c *echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, partDTO{ID: v.ID(), SKU: v.SKU(), InternalCode: v.InternalCode(), Name: v.Name(), Description: v.Description(), Unit: v.Unit(), PurchasePriceInCents: v.PurchasePriceInCents(), SalePriceInCents: v.SalePriceInCents(), Stock: v.Stock(), ReservedStock: v.ReservedStock(), AvailableStock: v.AvailableStock(), PerformedBy: v.PerformedBy(), Active: v.Active()})
 }
+func (h *Handler) listStockMovements(c *echo.Context) error {
+	p, e := pagination.Parse(c.QueryParam("page"), c.QueryParam("per_page"))
+	if e != nil {
+		return bad(c, e)
+	}
+	page, e := h.service.ListStockMovements(c.Request().Context(), c.Param("id"), p)
+	if e != nil {
+		return fail(c, e)
+	}
+	if page.TotalItems == 0 {
+		return c.NoContent(http.StatusNoContent)
+	}
+	out := make([]movementDTO, 0, len(page.Items))
+	for _, m := range page.Items {
+		out = append(out, movementDTO{ID: m.ID, PartID: m.PartID, Type: m.Type, Quantity: m.Quantity, Description: m.Description, CreatedBy: m.PerformedBy, WorkOrderID: m.WorkOrderID, CreatedAt: m.CreatedAt})
+	}
+	return c.JSON(http.StatusOK, pagination.NewResponse(pagination.NewPage(out, p, page.TotalItems), c.Request().URL.String()))
+}
 func decode(c *echo.Context, v any) error {
 	d := json.NewDecoder(c.Request().Body)
 	d.DisallowUnknownFields()
@@ -235,6 +265,8 @@ func fail(c *echo.Context, e error) error {
 		return write(c, http.StatusConflict, "Catalog item already exists", "A catalog item with this identifier already exists.")
 	case errors.Is(e, domain.ErrInsufficientStock):
 		return write(c, http.StatusConflict, "Insufficient stock", e.Error())
+	case errors.Is(e, domain.ErrPartHasStock):
+		return write(c, http.StatusConflict, "Part still has stock", e.Error())
 	case errors.Is(e, domain.ErrInvalidID), errors.Is(e, domain.ErrInvalidName), errors.Is(e, domain.ErrInvalidInternalCode), errors.Is(e, domain.ErrInvalidSKU), errors.Is(e, domain.ErrInvalidPrice), errors.Is(e, domain.ErrInvalidPurchasePrice), errors.Is(e, domain.ErrInvalidDuration), errors.Is(e, domain.ErrInvalidUnit), errors.Is(e, domain.ErrInvalidStockChange), errors.Is(e, domain.ErrInvalidMovement):
 		return write(c, http.StatusBadRequest, "Invalid catalog item", e.Error())
 	default:

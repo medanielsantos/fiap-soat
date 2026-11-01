@@ -11,6 +11,7 @@ import (
 	"github.com/medanielsantos/fiap-soat/internal/servicecatalog/application"
 	"github.com/medanielsantos/fiap-soat/internal/servicecatalog/domain"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Repository struct{ db *gorm.DB }
@@ -98,8 +99,17 @@ func (r *Repository) UpdateService(ctx context.Context, v domain.Service) error 
 func (r *Repository) DeleteService(ctx context.Context, id string) error {
 	return deleteRecord(platformdatabase.Current(ctx, r.db).Delete(&serviceRecord{}, "id = ?", id))
 }
-func (r *Repository) SavePart(ctx context.Context, v domain.Part) error {
-	return translate(platformdatabase.Current(ctx, r.db).Create(&partRecord{ID: v.ID(), SKU: v.SKU(), InternalCode: v.InternalCode(), Name: v.Name(), Description: v.Description(), Unit: v.Unit(), PurchasePriceInCents: v.PurchasePriceInCents(), SalePriceInCents: v.SalePriceInCents(), Stock: v.Stock(), PerformedBy: v.PerformedBy(), Active: v.Active()}).Error)
+func (r *Repository) SavePart(ctx context.Context, v domain.Part, openingMovement *domain.StockMovement) error {
+	db := platformdatabase.Current(ctx, r.db)
+	return translate(db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&partRecord{ID: v.ID(), SKU: v.SKU(), InternalCode: v.InternalCode(), Name: v.Name(), Description: v.Description(), Unit: v.Unit(), PurchasePriceInCents: v.PurchasePriceInCents(), SalePriceInCents: v.SalePriceInCents(), Stock: v.Stock(), PerformedBy: v.PerformedBy(), Active: v.Active()}).Error; err != nil {
+			return err
+		}
+		if openingMovement != nil {
+			return tx.Create(&movementRecord{ID: openingMovement.ID(), PartID: openingMovement.PartID(), Type: string(openingMovement.Type()), Quantity: openingMovement.Quantity(), Description: openingMovement.Description(), PerformedBy: openingMovement.PerformedBy()}).Error
+		}
+		return nil
+	}))
 }
 func (r *Repository) FindPart(ctx context.Context, id string) (domain.Part, error) {
 	var x partRecord
@@ -132,7 +142,17 @@ func (r *Repository) UpdatePart(ctx context.Context, v domain.Part) error {
 	return update(platformdatabase.Current(ctx, r.db).Model(&partRecord{}).Where("id = ?", v.ID()).Updates(map[string]any{"sku": v.SKU(), "internal_code": v.InternalCode(), "name": v.Name(), "description": v.Description(), "unit": v.Unit(), "purchase_price_in_cents": v.PurchasePriceInCents(), "sale_price_in_cents": v.SalePriceInCents(), "updated_by": v.PerformedBy(), "active": v.Active(), "updated_at": time.Now()}))
 }
 func (r *Repository) DeletePart(ctx context.Context, id string) error {
-	return deleteRecord(platformdatabase.Current(ctx, r.db).Delete(&partRecord{}, "id = ?", id))
+	db := platformdatabase.Current(ctx, r.db)
+	return translate(db.Transaction(func(tx *gorm.DB) error {
+		var part partRecord
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&part, "id = ?", id).Error; err != nil {
+			return translate(err)
+		}
+		if part.Stock > 0 || part.ReservedStock > 0 {
+			return domain.ErrPartHasStock
+		}
+		return deleteRecord(tx.Delete(&partRecord{}, "id = ?", id))
+	}))
 }
 func (r *Repository) MoveStock(ctx context.Context, m domain.StockMovement) (domain.Part, error) {
 	e := platformdatabase.Current(ctx, r.db).Transaction(func(tx *gorm.DB) error {
@@ -164,6 +184,23 @@ func (r *Repository) MoveStock(ctx context.Context, m domain.StockMovement) (dom
 		return domain.Part{}, translate(e)
 	}
 	return r.FindPart(ctx, m.PartID())
+}
+
+func (r *Repository) ListStockMovements(ctx context.Context, partID string, p pagination.Params) (pagination.Page[application.StockMovement], error) {
+	db := platformdatabase.Current(ctx, r.db).Model(&movementRecord{}).Where("part_id = ?", partID)
+	var total int64
+	if err := db.Count(&total).Error; err != nil {
+		return pagination.Page[application.StockMovement]{}, err
+	}
+	var rows []movementRecord
+	if err := db.Order("created_at DESC, id DESC").Limit(p.Limit()).Offset(p.Offset()).Find(&rows).Error; err != nil {
+		return pagination.Page[application.StockMovement]{}, err
+	}
+	items := make([]application.StockMovement, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, application.StockMovement{ID: row.ID, PartID: row.PartID, Type: row.Type, Quantity: row.Quantity, Description: row.Description, PerformedBy: row.PerformedBy, WorkOrderID: row.WorkOrderID, CreatedAt: row.CreatedAt})
+	}
+	return pagination.NewPage(items, p, total), nil
 }
 
 func (r *Repository) ReserveStock(ctx context.Context, orderID, actor string, requirements []application.StockRequirement) error {

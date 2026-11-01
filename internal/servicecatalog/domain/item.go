@@ -17,6 +17,7 @@ var (
 	ErrInvalidStockChange   = errors.New("stock movement quantity must be positive")
 	ErrInsufficientStock    = errors.New("insufficient stock")
 	ErrInvalidMovement      = errors.New("movement type must be entry or exit")
+	ErrPartHasStock         = errors.New("part cannot be deleted while stock is on hand or reserved")
 )
 
 type Service struct {
