@@ -12,7 +12,6 @@ type customerFinder interface {
 	Get(ctx context.Context, id string) (customerdomain.Customer, error)
 }
 
-// Directory adapts the customer module to the vehicle CustomerDirectory port.
 type Directory struct {
 	customers customerFinder
 }
