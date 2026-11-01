@@ -34,6 +34,7 @@ type IDGenerator interface {
 
 type ListFilter struct {
 	CustomerID string
+	VehicleID  string
 }
 
 type VehicleService struct {

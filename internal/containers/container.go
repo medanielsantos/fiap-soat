@@ -72,10 +72,14 @@ func New() (*dig.Container, error) {
 	if err := container.Provide(func() application.IDGenerator { return platformid.UUIDGenerator{} }); err != nil {
 		return nil, err
 	}
-	if err := container.Provide(application.NewCustomerService); err != nil {
+	if err := container.Provide(func(store application.CustomerStore, ids application.IDGenerator, mailer *email.SMTPMailer, cfg config.Config) *application.CustomerService {
+		return application.NewCustomerService(store, ids, application.CustomerResetOptions{Mailer: mailer, URL: cfg.CustomerPasswordResetURL})
+	}); err != nil {
 		return nil, err
 	}
-	if err := container.Provide(customerhttp.NewHandler); err != nil {
+	if err := container.Provide(func(service *application.CustomerService, vehicles *vehicleapp.VehicleService, issuer *identityjwt.Issuer, workOrders *workorderapp.Service) *customerhttp.Handler {
+		return customerhttp.NewHandler(service, customerhttp.ClientDependencies{Vehicles: vehicles, Issuer: issuer, WorkOrders: workOrders})
+	}); err != nil {
 		return nil, err
 	}
 	if err := container.Provide(vehiclepostgres.NewVehicleRepository); err != nil {

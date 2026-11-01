@@ -38,6 +38,9 @@ func (repository *VehicleRepository) List(ctx context.Context, filter applicatio
 	if filter.CustomerID != "" {
 		db = db.Where("customer_id = ?", filter.CustomerID)
 	}
+	if filter.VehicleID != "" {
+		db = db.Where("id = ?", filter.VehicleID)
+	}
 	var totalItems int64
 	if err := db.Count(&totalItems).Error; err != nil {
 		return pagination.Page[domain.Vehicle]{}, translateError(err)

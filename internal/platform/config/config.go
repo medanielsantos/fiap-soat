@@ -11,20 +11,21 @@ import (
 const defaultHTTPPort = "8080"
 
 type Config struct {
-	HTTPAddress      string
-	DatabaseURL      string
-	JWTSecret        string
-	JWTIssuer        string
-	JWTExpiry        time.Duration
-	SMTPHost         string
-	SMTPPort         string
-	SMTPUser         string
-	SMTPPassword     string
-	SMTPFrom         string
-	PasswordResetURL string
-	AdminName        string
-	AdminEmail       string
-	AdminPassword    string
+	HTTPAddress              string
+	DatabaseURL              string
+	JWTSecret                string
+	JWTIssuer                string
+	JWTExpiry                time.Duration
+	SMTPHost                 string
+	SMTPPort                 string
+	SMTPUser                 string
+	SMTPPassword             string
+	SMTPFrom                 string
+	PasswordResetURL         string
+	CustomerPasswordResetURL string
+	AdminName                string
+	AdminEmail               string
+	AdminPassword            string
 }
 
 func Load() Config {
@@ -38,20 +39,21 @@ func Load() Config {
 		databaseURL = postgresURLFromEnvironment()
 	}
 	return Config{
-		HTTPAddress:      ":" + port,
-		DatabaseURL:      databaseURL,
-		JWTSecret:        os.Getenv("JWT_SECRET"),
-		JWTIssuer:        envOr("JWT_ISSUER", "fiap-soat"),
-		JWTExpiry:        24 * time.Hour,
-		SMTPHost:         os.Getenv("SMTP_HOST"),
-		SMTPPort:         envOr("SMTP_PORT", "587"),
-		SMTPUser:         os.Getenv("SMTP_USERNAME"),
-		SMTPPassword:     os.Getenv("SMTP_PASSWORD"),
-		SMTPFrom:         os.Getenv("SMTP_FROM"),
-		PasswordResetURL: os.Getenv("PASSWORD_RESET_URL"),
-		AdminName:        os.Getenv("ADMIN_NAME"),
-		AdminEmail:       os.Getenv("ADMIN_EMAIL"),
-		AdminPassword:    os.Getenv("ADMIN_PASSWORD"),
+		HTTPAddress:              ":" + port,
+		DatabaseURL:              databaseURL,
+		JWTSecret:                os.Getenv("JWT_SECRET"),
+		JWTIssuer:                envOr("JWT_ISSUER", "fiap-soat"),
+		JWTExpiry:                24 * time.Hour,
+		SMTPHost:                 os.Getenv("SMTP_HOST"),
+		SMTPPort:                 envOr("SMTP_PORT", "587"),
+		SMTPUser:                 os.Getenv("SMTP_USERNAME"),
+		SMTPPassword:             os.Getenv("SMTP_PASSWORD"),
+		SMTPFrom:                 os.Getenv("SMTP_FROM"),
+		PasswordResetURL:         os.Getenv("PASSWORD_RESET_URL"),
+		CustomerPasswordResetURL: os.Getenv("CUSTOMER_PASSWORD_RESET_URL"),
+		AdminName:                os.Getenv("ADMIN_NAME"),
+		AdminEmail:               os.Getenv("ADMIN_EMAIL"),
+		AdminPassword:            os.Getenv("ADMIN_PASSWORD"),
 	}
 }
 

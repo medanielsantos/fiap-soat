@@ -1,25 +1,30 @@
 # ADR-006 — Acesso do cliente à Ordem de Serviço
 
-- **Estado:** Proposto — confirmar antes da implementação
-- **Data:** 2026-10-25
+- **Estado:** Definido
+- **Data:** 2026-11-01
 
 ## Contexto
 
-O cliente precisa consultar o andamento e aprovar/rejeitar o orçamento sem receber acesso às APIs administrativas. O requisito não define cadastro de conta ou provedor de identidade do cliente.
+O cliente precisa consultar o andamento e decidir sobre orçamentos sem receber acesso às APIs administrativas. Um cadastro de cliente pode ter vários veículos.
 
-## Decisão proposta
+## Decisão
 
-Emitir uma credencial aleatória, de alta entropia, limitada a uma única OS e às operações de acompanhamento/aprovação. Guardar apenas hash da credencial; suportar expiração e revogação. Validar credencial e vínculo com a OS em toda requisição. Não aceitar apenas CPF, placa ou ID sequencial como fator de autorização.
+O sistema oferecerá dois meios de acesso:
 
-## Alternativas consideradas
+1. **Conta do cliente:** autenticação por e-mail e senha. A sessão fica vinculada ao cliente e permite consultar todos os seus veículos e respectivas ordens de serviço. A senha será armazenada somente como hash seguro e nunca será devolvida pela API.
+2. **Acesso por veículo:** autenticação pela placa e pelos cinco primeiros dígitos do CPF/CNPJ. Pontuação e espaços do documento são ignorados antes da comparação. A sessão fica limitada ao veículo informado e às ordens de serviço daquele veículo.
 
-- Login/senha para todos os clientes: mais gestão de conta do que o MVP exige.
-- JWT administrativo compartilhado: privilégio excessivo e fronteira de acesso incorreta.
-- OS ID ou CPF como segredo: previsível e enumerável.
+As operações de cliente não usam credenciais administrativas. O servidor valida a sessão e o escopo em cada consulta ou decisão de orçamento. O acesso por veículo exige rate limiting e respostas que não revelem se placa ou documento existem. Credenciais temporárias devem expirar e poder ser revogadas; seus tokens não devem ser registrados em logs.
 
 ## Consequências
 
-- O fluxo precisa definir como entregar a credencial ao cliente; envio real de e-mail/SMS está fora do escopo e pode ser simulado localmente.
-- Token não deve aparecer em logs ou URLs; preferir header de autorização.
-- A credencial deve permitir somente ações da OS correspondente.
-- **Pendente:** duração, momento de emissão e processo de reemissão/revogação.
+- O cadastro de cliente precisa armazenar hash de senha e oferecer autenticação e recuperação/troca de senha.
+- O acesso por placa permite acesso somente ao veículo correspondente, mesmo quando o cliente possui outros veículos.
+- A API de cliente deve listar veículos e OS conforme o escopo da sessão.
+- A aprovação/rejeição de orçamento deve obter o cliente autenticado da sessão, em vez de confiar em `client_id` enviado no corpo.
+- Os cinco dígitos do documento são um segredo de baixa entropia; tentativas devem ser limitadas e monitoradas, e o acesso não deve revelar dados pessoais além do necessário.
+- Redis pode armazenar sessões efêmeras e contadores de rate limit, caso o ADR-011 seja adotado.
+
+## Fora do escopo
+
+Envio real de notificações por e-mail/SMS continua fora do MVP. A senha do cliente não será exposta nos endpoints administrativos de cadastro ou consulta.
