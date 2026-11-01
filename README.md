@@ -155,7 +155,7 @@ PostgreSQL foi escolhido por transações ACID, constraints e integridade refere
 
 ## Segurança e qualidade
 
-Rotas administrativas exigem JWT; o acesso do cliente ao acompanhamento é autorizado separadamente e limitado à sua OS. A meta é cobertura mínima de 80% nos domínios críticos. Execute `make test` para os testes unitários. Para testes PostgreSQL locais, copie `.env.testing.example` para `.env.testing`, preencha as credenciais de uma base dedicada e execute `make test-integration`; no CI, injete `TEST_DATABASE_URL` ou as variáveis `DB_*` como secrets. Para medir a cobertura dos domínios críticos, use `make test-coverage`.
+Rotas administrativas exigem JWT; o acesso do cliente ao acompanhamento é autorizado separadamente e limitado à sua OS. A meta é cobertura mínima de 80% nos domínios críticos. Execute `make test-unit` para os testes unitários/de aplicação e `make test-integration` para os testes PostgreSQL. Para testes de integração locais, copie `.env.testing.example` para `.env.testing` e preencha as credenciais de uma base dedicada; no CI, as credenciais são criadas para o serviço PostgreSQL do job. `make test` continua executando todos os pacotes disponíveis. Para medir a cobertura dos domínios críticos, use `make test-coverage`.
 
 ## Documentação técnica
 

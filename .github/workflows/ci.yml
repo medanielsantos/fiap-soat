@@ -11,7 +11,18 @@ permissions:
 
 jobs:
   test:
-    name: Tests
+    name: Unit and Application Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make test-unit
+
+  integration:
+    name: PostgreSQL Integration Tests
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -43,13 +54,14 @@ jobs:
           DB_PASSWORD=fiap_test
           DB_SSL_MODE=disable
           EOF
-      - run: go test ./...
+      - run: make test-integration
       - name: Remove temporary test credentials
         if: always()
         run: rm -f .env.testing
 
   coverage:
     name: Coverage
+    needs: [test, integration]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
