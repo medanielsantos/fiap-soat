@@ -33,20 +33,16 @@ func (h *Handler) RegisterRoutes(g *echo.Group) {
 type createRequest struct {
 	CustomerID string `json:"customer_id"`
 	VehicleID  string `json:"vehicle_id"`
-	UserID     string `json:"user_id"`
 }
 type diagnosisRequest struct {
 	Diagnosis string `json:"diagnosis"`
-	UserID    string `json:"user_id"`
 }
 type itemRequest struct {
 	Type      domain.ItemType `json:"type"`
 	CatalogID string          `json:"catalog_id"`
 	Quantity  int64           `json:"quantity"`
-	UserID    string          `json:"user_id"`
 }
 type userRequest struct {
-	UserID string `json:"user_id"`
 }
 type clientRequest struct {
 	ClientID string `json:"client_id"`
@@ -58,7 +54,6 @@ type rejectRequest struct {
 type consumeRequest struct {
 	PartID   string `json:"part_id"`
 	Quantity int64  `json:"quantity"`
-	UserID   string `json:"user_id"`
 }
 type problem struct {
 	Type     string `json:"type"`
@@ -73,7 +68,7 @@ func (h *Handler) create(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	o, e := h.service.Create(c.Request().Context(), x.CustomerID, x.VehicleID, x.UserID)
+	o, e := h.service.Create(c.Request().Context(), x.CustomerID, x.VehicleID, authenticatedUserID(c))
 	if e != nil {
 		return fail(c, e)
 	}
@@ -106,7 +101,7 @@ func (h *Handler) diagnosis(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	o, e := h.service.Diagnosis(c.Request().Context(), c.Param("id"), x.Diagnosis, x.UserID)
+	o, e := h.service.Diagnosis(c.Request().Context(), c.Param("id"), x.Diagnosis, authenticatedUserID(c))
 	if e != nil {
 		return fail(c, e)
 	}
@@ -117,14 +112,14 @@ func (h *Handler) addItem(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	o, e := h.service.AddItem(c.Request().Context(), c.Param("id"), x.Type, x.CatalogID, x.Quantity, x.UserID)
+	o, e := h.service.AddItem(c.Request().Context(), c.Param("id"), x.Type, x.CatalogID, x.Quantity, authenticatedUserID(c))
 	if e != nil {
 		return fail(c, e)
 	}
 	return c.JSON(http.StatusCreated, o)
 }
 func (h *Handler) removeItem(c *echo.Context) error {
-	o, e := h.service.RemoveItem(c.Request().Context(), c.Param("id"), c.Param("item_id"), c.QueryParam("user_id"))
+	o, e := h.service.RemoveItem(c.Request().Context(), c.Param("id"), c.Param("item_id"), authenticatedUserID(c))
 	if e != nil {
 		return fail(c, e)
 	}
@@ -135,7 +130,7 @@ func (h *Handler) submitQuote(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	o, e := h.service.SubmitQuote(c.Request().Context(), c.Param("id"), x.UserID)
+	o, e := h.service.SubmitQuote(c.Request().Context(), c.Param("id"), authenticatedUserID(c))
 	if e != nil {
 		return fail(c, e)
 	}
@@ -168,7 +163,7 @@ func (h *Handler) consume(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	o, e := h.service.Consume(c.Request().Context(), c.Param("id"), x.PartID, x.Quantity, x.UserID)
+	o, e := h.service.Consume(c.Request().Context(), c.Param("id"), x.PartID, x.Quantity, authenticatedUserID(c))
 	if e != nil {
 		return fail(c, e)
 	}
@@ -179,7 +174,7 @@ func (h *Handler) complete(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	o, e := h.service.Complete(c.Request().Context(), c.Param("id"), x.UserID)
+	o, e := h.service.Complete(c.Request().Context(), c.Param("id"), authenticatedUserID(c))
 	if e != nil {
 		return fail(c, e)
 	}
@@ -190,11 +185,15 @@ func (h *Handler) deliver(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	o, e := h.service.Deliver(c.Request().Context(), c.Param("id"), x.UserID)
+	o, e := h.service.Deliver(c.Request().Context(), c.Param("id"), authenticatedUserID(c))
 	if e != nil {
 		return fail(c, e)
 	}
 	return c.JSON(http.StatusOK, o)
+}
+func authenticatedUserID(c *echo.Context) string {
+	userID, _ := c.Get("user_id").(string)
+	return userID
 }
 func decode(c *echo.Context, v any) error {
 	d := json.NewDecoder(c.Request().Body)

@@ -4,8 +4,13 @@ import (
 	customerhttp "github.com/medanielsantos/fiap-soat/internal/customer/adapters/in/http"
 	customerpostgres "github.com/medanielsantos/fiap-soat/internal/customer/adapters/out/postgres"
 	"github.com/medanielsantos/fiap-soat/internal/customer/application"
+	identityhttp "github.com/medanielsantos/fiap-soat/internal/identity/adapters/in/http"
+	identityjwt "github.com/medanielsantos/fiap-soat/internal/identity/adapters/out/jwt"
+	identitypostgres "github.com/medanielsantos/fiap-soat/internal/identity/adapters/out/postgres"
+	identityapp "github.com/medanielsantos/fiap-soat/internal/identity/application"
 	"github.com/medanielsantos/fiap-soat/internal/platform/config"
 	"github.com/medanielsantos/fiap-soat/internal/platform/database"
+	"github.com/medanielsantos/fiap-soat/internal/platform/email"
 	"github.com/medanielsantos/fiap-soat/internal/platform/httpserver"
 	platformid "github.com/medanielsantos/fiap-soat/internal/platform/id"
 	cataloghttp "github.com/medanielsantos/fiap-soat/internal/servicecatalog/adapters/in/http"
@@ -26,6 +31,31 @@ import (
 func New() (*dig.Container, error) {
 	container := dig.New()
 	if err := container.Provide(config.Load); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func(cfg config.Config) (*identityjwt.Issuer, error) {
+		return identityjwt.NewIssuer(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTExpiry)
+	}); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(email.NewSMTPMailer); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(identitypostgres.NewRepository); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func(repository *identitypostgres.Repository) identityapp.Store { return repository }); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func() identityapp.IDGenerator { return platformid.UUIDGenerator{} }); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func(store identityapp.Store, ids identityapp.IDGenerator, issuer *identityjwt.Issuer, mailer *email.SMTPMailer, cfg config.Config) *identityapp.Service {
+		return identityapp.NewService(store, ids, issuer, mailer, cfg.PasswordResetURL)
+	}); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(identityhttp.NewHandler); err != nil {
 		return nil, err
 	}
 	if err := container.Provide(database.OpenPostgres); err != nil {

@@ -3,11 +3,15 @@ package httpserver
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/labstack/echo/v5"
 	customerhttp "github.com/medanielsantos/fiap-soat/internal/customer/adapters/in/http"
 	"github.com/medanielsantos/fiap-soat/internal/customer/application"
 	"github.com/medanielsantos/fiap-soat/internal/customer/domain"
+	identityhttp "github.com/medanielsantos/fiap-soat/internal/identity/adapters/in/http"
+	identityjwt "github.com/medanielsantos/fiap-soat/internal/identity/adapters/out/jwt"
+	identityapp "github.com/medanielsantos/fiap-soat/internal/identity/application"
 	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
 	cataloghttp "github.com/medanielsantos/fiap-soat/internal/servicecatalog/adapters/in/http"
 	catalogapp "github.com/medanielsantos/fiap-soat/internal/servicecatalog/application"
@@ -67,7 +71,13 @@ func TestRouterRegistersVersionedRoutes(t *testing.T) {
 	vehicleService := vehicleapp.NewVehicleService(routeTestVehicleStore{}, routeTestCustomerDirectory{}, routeTestIDGenerator{})
 	catalogService := catalogapp.NewCatalogService(routeTestCatalogStore{}, routeTestIDGenerator{})
 	workOrderService := workorderapp.NewService(routeTestWorkOrderStore{}, routeTestWorkOrderDependencies{}, routeTestIDGenerator{}, routeTestWorkOrderDependencies{}, routeTestWorkOrderDependencies{}, routeTestWorkOrderDependencies{})
-	router := NewRouter(e, customerhttp.NewHandler(service), vehiclehttp.NewHandler(vehicleService), cataloghttp.NewHandler(catalogService), workorderhttp.NewHandler(workOrderService))
+	issuer, err := identityjwt.NewIssuer("01234567890123456789012345678901", "test", 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identityService := identityapp.NewService(nil, nil, issuer, nil, "")
+	identityHandler := identityhttp.NewHandler(identityService, issuer)
+	router := NewRouter(e, customerhttp.NewHandler(service), vehiclehttp.NewHandler(vehicleService), cataloghttp.NewHandler(catalogService), workorderhttp.NewHandler(workOrderService), identityHandler)
 	router.Register()
 
 	registered := make(map[string]bool)
@@ -76,6 +86,15 @@ func TestRouterRegistersVersionedRoutes(t *testing.T) {
 	}
 	for _, route := range []string{
 		"GET /health",
+		"POST /api/v1/auth/login",
+		"POST /api/v1/admin-users",
+		"GET /api/v1/admin-users",
+		"GET /api/v1/admin-users/:id",
+		"PATCH /api/v1/admin-users/:id/status",
+		"PUT /api/v1/admin-users/:id/roles",
+		"POST /api/v1/admin-users/:id/permissions/:permission",
+		"DELETE /api/v1/admin-users/:id/permissions/:permission",
+		"DELETE /api/v1/admin-users/:id",
 		"POST /api/v1/customers",
 		"GET /api/v1/customers",
 		"GET /api/v1/customers/:id",

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v5"
+	identityapp "github.com/medanielsantos/fiap-soat/internal/identity/application"
 	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
 	"github.com/medanielsantos/fiap-soat/internal/servicecatalog/application"
 	"github.com/medanielsantos/fiap-soat/internal/servicecatalog/domain"
@@ -16,19 +17,19 @@ import (
 type Handler struct{ service *application.CatalogService }
 
 func NewHandler(s *application.CatalogService) *Handler { return &Handler{service: s} }
-func (h *Handler) RegisterRoutes(g *echo.Group) {
+func (h *Handler) RegisterRoutes(g *echo.Group, requireProductCreate, requireProductDelete echo.MiddlewareFunc) {
 	s := g.Group("/services")
-	s.POST("", h.createService)
+	s.POST("", h.createService, requireProductCreate)
 	s.GET("", h.listServices)
 	s.GET("/:id", h.getService)
 	s.PUT("/:id", h.updateService)
-	s.DELETE("/:id", h.deleteService)
+	s.DELETE("/:id", h.deleteService, requireProductDelete)
 	p := g.Group("/parts")
-	p.POST("", h.createPart)
+	p.POST("", h.createPart, requireProductCreate)
 	p.GET("", h.listParts)
 	p.GET("/:id", h.getPart)
 	p.PUT("/:id", h.updatePart)
-	p.DELETE("/:id", h.deletePart)
+	p.DELETE("/:id", h.deletePart, requireProductDelete)
 	p.POST("/:id/stock-movements", h.moveStock)
 	p.GET("/:id/stock-movements", h.listStockMovements)
 }
@@ -111,7 +112,7 @@ func (h *Handler) createService(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	v, e := h.service.CreateService(c.Request().Context(), application.ServiceInput{InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, SalePriceInCents: x.SalePriceInCents, EstimatedDurationMinutes: x.EstimatedDurationMinutes, PerformedBy: x.CreatedBy, Active: active(x.Active)})
+	v, e := h.service.CreateService(c.Request().Context(), application.ServiceInput{InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, SalePriceInCents: x.SalePriceInCents, EstimatedDurationMinutes: x.EstimatedDurationMinutes, PerformedBy: authenticatedUserID(c), Active: active(x.Active)})
 	if e != nil {
 		return fail(c, e)
 	}
@@ -148,7 +149,16 @@ func (h *Handler) updateService(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	v, e := h.service.UpdateService(c.Request().Context(), c.Param("id"), application.ServiceInput{InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, SalePriceInCents: x.SalePriceInCents, EstimatedDurationMinutes: x.EstimatedDurationMinutes, PerformedBy: x.UpdatedBy, Active: active(x.Active)})
+	if !hasPermission(c, identityapp.PermissionProductsPriceUpdate) {
+		current, err := h.service.GetService(c.Request().Context(), c.Param("id"))
+		if err != nil {
+			return fail(c, err)
+		}
+		if current.SalePriceInCents() != x.SalePriceInCents {
+			return write(c, http.StatusForbidden, "Insufficient permissions", "Attendants cannot change prices.")
+		}
+	}
+	v, e := h.service.UpdateService(c.Request().Context(), c.Param("id"), application.ServiceInput{InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, SalePriceInCents: x.SalePriceInCents, EstimatedDurationMinutes: x.EstimatedDurationMinutes, PerformedBy: authenticatedUserID(c), Active: active(x.Active)})
 	if e != nil {
 		return fail(c, e)
 	}
@@ -165,7 +175,7 @@ func (h *Handler) createPart(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	v, e := h.service.CreatePart(c.Request().Context(), application.PartInput{SKU: x.SKU, InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, Unit: x.Unit, PurchasePriceInCents: x.PurchasePriceInCents, SalePriceInCents: x.SalePriceInCents, InitialStock: x.InitialStock, PerformedBy: x.CreatedBy, Active: active(x.Active)})
+	v, e := h.service.CreatePart(c.Request().Context(), application.PartInput{SKU: x.SKU, InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, Unit: x.Unit, PurchasePriceInCents: x.PurchasePriceInCents, SalePriceInCents: x.SalePriceInCents, InitialStock: x.InitialStock, PerformedBy: authenticatedUserID(c), Active: active(x.Active)})
 	if e != nil {
 		return fail(c, e)
 	}
@@ -202,7 +212,16 @@ func (h *Handler) updatePart(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	v, e := h.service.UpdatePart(c.Request().Context(), c.Param("id"), application.PartInput{SKU: x.SKU, InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, Unit: x.Unit, PurchasePriceInCents: x.PurchasePriceInCents, SalePriceInCents: x.SalePriceInCents, PerformedBy: x.UpdatedBy, Active: active(x.Active)})
+	if !hasPermission(c, identityapp.PermissionProductsPriceUpdate) {
+		current, err := h.service.GetPart(c.Request().Context(), c.Param("id"))
+		if err != nil {
+			return fail(c, err)
+		}
+		if current.PurchasePriceInCents() != x.PurchasePriceInCents || current.SalePriceInCents() != x.SalePriceInCents {
+			return write(c, http.StatusForbidden, "Insufficient permissions", "Attendants cannot change prices.")
+		}
+	}
+	v, e := h.service.UpdatePart(c.Request().Context(), c.Param("id"), application.PartInput{SKU: x.SKU, InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, Unit: x.Unit, PurchasePriceInCents: x.PurchasePriceInCents, SalePriceInCents: x.SalePriceInCents, PerformedBy: authenticatedUserID(c), Active: active(x.Active)})
 	if e != nil {
 		return fail(c, e)
 	}
@@ -219,7 +238,7 @@ func (h *Handler) moveStock(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	v, e := h.service.MoveStock(c.Request().Context(), c.Param("id"), x.Type, x.Quantity, x.Description, x.PerformedBy)
+	v, e := h.service.MoveStock(c.Request().Context(), c.Param("id"), x.Type, x.Quantity, x.Description, authenticatedUserID(c))
 	if e != nil {
 		return fail(c, e)
 	}
@@ -242,6 +261,19 @@ func (h *Handler) listStockMovements(c *echo.Context) error {
 		out = append(out, movementDTO{ID: m.ID, PartID: m.PartID, Type: m.Type, Quantity: m.Quantity, Description: m.Description, CreatedBy: m.PerformedBy, WorkOrderID: m.WorkOrderID, CreatedAt: m.CreatedAt})
 	}
 	return c.JSON(http.StatusOK, pagination.NewResponse(pagination.NewPage(out, p, page.TotalItems), c.Request().URL.String()))
+}
+func authenticatedUserID(c *echo.Context) string {
+	userID, _ := c.Get("user_id").(string)
+	return userID
+}
+func hasPermission(c *echo.Context, permission identityapp.Permission) bool {
+	permissions, _ := c.Get("permissions").([]identityapp.Permission)
+	for _, candidate := range permissions {
+		if candidate == permission {
+			return true
+		}
+	}
+	return false
 }
 func decode(c *echo.Context, v any) error {
 	d := json.NewDecoder(c.Request().Body)

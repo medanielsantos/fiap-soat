@@ -36,6 +36,7 @@ func TestConcurrentApprovalsCannotOversellStock(t *testing.T) {
 			defer wg.Done()
 			recorder := httptest.NewRecorder()
 			request := httptest.NewRequest(http.MethodPost, "/api/v1/work-orders/"+id+"/quotes/approve", bytes.NewBufferString(`{"client_id":"integration-customer"}`))
+			request.Header.Set("Authorization", "Bearer "+server.token)
 			server.ServeHTTP(recorder, request)
 			statuses <- recorder.Code
 		}(orderID)

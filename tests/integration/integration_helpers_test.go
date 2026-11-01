@@ -18,6 +18,10 @@ import (
 	"github.com/labstack/echo/v5"
 	customerpostgres "github.com/medanielsantos/fiap-soat/internal/customer/adapters/out/postgres"
 	customerapp "github.com/medanielsantos/fiap-soat/internal/customer/application"
+	identityhttp "github.com/medanielsantos/fiap-soat/internal/identity/adapters/in/http"
+	identityjwt "github.com/medanielsantos/fiap-soat/internal/identity/adapters/out/jwt"
+	identitypostgres "github.com/medanielsantos/fiap-soat/internal/identity/adapters/out/postgres"
+	identityapp "github.com/medanielsantos/fiap-soat/internal/identity/application"
 	"github.com/medanielsantos/fiap-soat/internal/platform/config"
 	"github.com/medanielsantos/fiap-soat/internal/platform/database"
 	platformid "github.com/medanielsantos/fiap-soat/internal/platform/id"
@@ -48,6 +52,8 @@ const (
 
 type testServer struct {
 	*echo.Echo
+	token        string
+	identityRepo *identitypostgres.Repository
 }
 
 func newTestServer(t *testing.T) *testServer {
@@ -128,10 +134,28 @@ func newTestServer(t *testing.T) *testServer {
 	inventory := workordercatalog.NewInventory(catalogService)
 	workService := workorderapp.NewService(workRepo, tx, platformid.UUIDGenerator{}, ownership, workCatalog, inventory)
 	engine := echo.New()
+	issuer, err := identityjwt.NewIssuer("integration-secret-with-at-least-32-bytes", "integration", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, _, err := issuer.Issue(testUserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identityStore := identitypostgres.NewRepository(db)
+	if err := identityStore.SeedAuthorization(context.Background()); err != nil {
+		t.Fatalf("seed roles and permissions: %v", err)
+	}
+	if err := identityStore.Create(context.Background(), identityapp.User{ID: testUserID, Name: "Integration Admin", Email: "admin@example.test", Password: "unused", Status: identityapp.UserStatusActive, Roles: []identityapp.UserRole{identityapp.UserRoleAdmin}}); err != nil {
+		t.Fatalf("seed integration admin: %v", err)
+	}
+	identityHandler := identityhttp.NewHandler(identityapp.NewService(identityStore, platformid.UUIDGenerator{}, issuer, nil, ""), issuer)
 	v1 := engine.Group("/api/v1")
-	cataloghttp.NewHandler(catalogService).RegisterRoutes(v1)
+	v1.Use(identityHandler.RequireAuth())
+	identityHandler.RegisterRoutes(v1)
+	cataloghttp.NewHandler(catalogService).RegisterRoutes(v1, identityHandler.RequirePermission(identityapp.PermissionProductsCreate), identityHandler.RequirePermission(identityapp.PermissionProductsDelete))
 	workorderhttp.NewHandler(workService).RegisterRoutes(v1.Group("/work-orders"))
-	return &testServer{Echo: engine}
+	return &testServer{Echo: engine, token: token, identityRepo: identityStore}
 }
 
 func seedOwnerRecords(db *gorm.DB) error {
@@ -149,16 +173,16 @@ func createPart(t *testing.T, server *testServer, sku string, initial int64) str
 
 func createOrder(t *testing.T, server *testServer) string {
 	t.Helper()
-	body := map[string]any{"customer_id": testCustomerID, "vehicle_id": testVehicleID, "user_id": testUserID}
+	body := map[string]any{"customer_id": testCustomerID, "vehicle_id": testVehicleID}
 	return call(t, server, http.MethodPost, "/api/v1/work-orders", body, http.StatusCreated)["id"].(string)
 }
 
 func prepareOrder(t *testing.T, server *testServer, partID string, quantity int64) string {
 	t.Helper()
 	id := createOrder(t, server)
-	call(t, server, http.MethodPost, "/api/v1/work-orders/"+id+"/diagnosis", map[string]any{"diagnosis": "Replace part", "user_id": testUserID}, http.StatusOK)
-	call(t, server, http.MethodPost, "/api/v1/work-orders/"+id+"/items", map[string]any{"type": "part", "catalog_id": partID, "quantity": quantity, "user_id": testUserID}, http.StatusCreated)
-	call(t, server, http.MethodPost, "/api/v1/work-orders/"+id+"/quotes", map[string]any{"user_id": testUserID}, http.StatusOK)
+	call(t, server, http.MethodPost, "/api/v1/work-orders/"+id+"/diagnosis", map[string]any{"diagnosis": "Replace part"}, http.StatusOK)
+	call(t, server, http.MethodPost, "/api/v1/work-orders/"+id+"/items", map[string]any{"type": "part", "catalog_id": partID, "quantity": quantity}, http.StatusCreated)
+	call(t, server, http.MethodPost, "/api/v1/work-orders/"+id+"/quotes", map[string]any{}, http.StatusOK)
 	return id
 }
 
@@ -171,6 +195,10 @@ func assertStock(t *testing.T, server *testServer, partID string, stock, reserve
 }
 
 func call(t *testing.T, server *testServer, method, path string, body any, wantStatus int) map[string]any {
+	return callWithToken(t, server, server.token, method, path, body, wantStatus)
+}
+
+func callWithToken(t *testing.T, server *testServer, token, method, path string, body any, wantStatus int) map[string]any {
 	t.Helper()
 	var requestBody []byte
 	if body != nil {
@@ -182,6 +210,7 @@ func call(t *testing.T, server *testServer, method, path string, body any, wantS
 	}
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(method, path, bytes.NewReader(requestBody))
+	request.Header.Set("Authorization", "Bearer "+token)
 	server.ServeHTTP(recorder, request)
 	if recorder.Code != wantStatus {
 		t.Fatalf("%s %s returned %d, want %d: %s", method, path, recorder.Code, wantStatus, strings.TrimSpace(recorder.Body.String()))
