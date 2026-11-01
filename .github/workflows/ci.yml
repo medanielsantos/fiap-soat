@@ -44,6 +44,7 @@ jobs:
           DB_SSL_MODE=disable
           EOF
       - run: go test ./...
+      - run: make test-coverage
       - name: Remove temporary test credentials
         if: always()
         run: rm -f .env.testing

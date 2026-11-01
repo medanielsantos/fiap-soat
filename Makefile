@@ -1,5 +1,7 @@
 .PHONY: run migrate test test-integration test-coverage lint build
 
+GOLANGCI_LINT ?= $(shell command -v golangci-lint 2>/dev/null || printf '%s/bin/golangci-lint' "$$(go env GOPATH)")
+
 run:
 	go run ./cmd/api
 
@@ -16,7 +18,7 @@ test-coverage:
 	go test -cover ./internal/workorder/domain ./internal/servicecatalog/domain
 
 lint:
-	golangci-lint run ./...
+	$(GOLANGCI_LINT) run ./...
 
 build:
 	go build -o /tmp/fiap-api ./cmd/api

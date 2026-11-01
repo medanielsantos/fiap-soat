@@ -44,11 +44,12 @@ func TestConcurrentApprovalsCannotOversellStock(t *testing.T) {
 	close(statuses)
 	approved, conflicted := 0, 0
 	for status := range statuses {
-		if status == http.StatusOK {
+		switch status {
+		case http.StatusOK:
 			approved++
-		} else if status == http.StatusConflict {
+		case http.StatusConflict:
 			conflicted++
-		} else {
+		default:
 			t.Fatalf("unexpected approval status %d", status)
 		}
 	}

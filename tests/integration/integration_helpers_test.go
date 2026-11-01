@@ -66,12 +66,16 @@ func newTestServer(t *testing.T) *testServer {
 	}
 	admin.SetMaxOpenConns(1)
 	if err := admin.PingContext(context.Background()); err != nil {
-		admin.Close()
+		if closeErr := admin.Close(); closeErr != nil {
+			t.Errorf("close admin connection: %v", closeErr)
+		}
 		t.Fatalf("connect to TEST_DATABASE_URL: %v", err)
 	}
 	schema := fmt.Sprintf("integration_%d", time.Now().UnixNano())
 	if _, err := admin.Exec(`CREATE SCHEMA "` + schema + `"`); err != nil {
-		admin.Close()
+		if closeErr := admin.Close(); closeErr != nil {
+			t.Errorf("close admin connection: %v", closeErr)
+		}
 		t.Fatalf("create isolated test schema: %v", err)
 	}
 	t.Cleanup(func() {
