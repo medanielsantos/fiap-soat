@@ -23,7 +23,7 @@ stateDiagram-v2
   completed --> delivered
 ```
 
-Rejeição do orçamento, revisão de itens e falta de estoque exigem regras explícitas antes da implementação; não se deve inventar transições automaticamente.
+Rejeição do orçamento retorna a OS para diagnóstico. Os itens podem ser revisados e uma nova versão do orçamento pode ser enviada. Falta de estoque impede a aprovação e não altera o estado da OS.
 
 ## Regras a preservar
 
@@ -38,6 +38,7 @@ Rejeição do orçamento, revisão de itens e falta de estoque exigem regras exp
 
 1. A equipe registra diagnóstico e serviços/peças necessários.
 2. O caso de uso calcula `subtotal_in_cents` e `total_in_cents`.
-3. Uma versão é disponibilizada para decisão do cliente.
-4. Aprovação válida confirma a versão e permite seguir para execução.
-5. Rejeição é registrada; comportamento de reorçamento permanece **a decidir**.
+3. Uma versão imutável com snapshots de descrição, código, preço e quantidade é disponibilizada para decisão do cliente.
+4. Aprovação válida reserva todas as peças na mesma transação que registra a decisão e muda o estado para execução.
+5. Rejeição é registrada e retorna a OS para diagnóstico, sem reservar estoque; a próxima submissão cria uma nova versão.
+6. Durante a execução, o consumo reduz o saldo físico e a reserva na mesma transação. A OS só pode ser finalizada após consumir todas as peças reservadas.

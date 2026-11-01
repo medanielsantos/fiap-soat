@@ -1,6 +1,6 @@
 # ADR-008 — Controle de estoque relacionado à OS
 
-- **Estado:** Proposto — confirmar momento da reserva/baixa
+- **Estado:** Aceito
 - **Data:** 2026-10-25
 
 ## Contexto
@@ -22,4 +22,4 @@ Ao aprovar o orçamento, reservar as quantidades da OS na mesma transação que 
 - Registrar movimentações imutáveis e saldo/reservas com concorrência controlada no PostgreSQL.
 - Rejeição antes de aprovação não movimenta estoque.
 - Cancelamento após aprovação precisa liberar reserva; fluxo de cancelamento permanece fora do escopo inicial até ser definido.
-- **Pendente:** confirmar se MVP implementa reserva e consumo separados ou simplifica para baixa atômica na aprovação.
+- O MVP implementa reserva na aprovação e consumo durante a execução.

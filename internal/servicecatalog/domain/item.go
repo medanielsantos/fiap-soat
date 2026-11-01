@@ -57,11 +57,11 @@ func (s Service) PerformedBy() string           { return s.performedBy }
 type Part struct {
 	id, sku, internalCode, name, description, unit, performedBy string
 	purchasePriceInCents, salePriceInCents                      int64
-	stock                                                       int64
+	stock, reservedStock                                        int64
 	active                                                      bool
 }
 
-func NewPart(id, sku, internalCode, name, description, unit string, purchasePriceInCents, salePriceInCents, stock int64, active bool, performedBy string) (Part, error) {
+func NewPart(id, sku, internalCode, name, description, unit string, purchasePriceInCents, salePriceInCents, stock, reservedStock int64, active bool, performedBy string) (Part, error) {
 	id, sku, internalCode, name, unit = strings.TrimSpace(id), strings.TrimSpace(sku), strings.TrimSpace(internalCode), strings.TrimSpace(name), strings.TrimSpace(unit)
 	if id == "" {
 		return Part{}, ErrInvalidID
@@ -87,7 +87,10 @@ func NewPart(id, sku, internalCode, name, description, unit string, purchasePric
 	if stock < 0 {
 		return Part{}, ErrInsufficientStock
 	}
-	return Part{id: id, sku: sku, internalCode: internalCode, name: name, description: strings.TrimSpace(description), unit: unit, purchasePriceInCents: purchasePriceInCents, salePriceInCents: salePriceInCents, stock: stock, active: active, performedBy: strings.TrimSpace(performedBy)}, nil
+	if reservedStock < 0 || reservedStock > stock {
+		return Part{}, ErrInsufficientStock
+	}
+	return Part{id: id, sku: sku, internalCode: internalCode, name: name, description: strings.TrimSpace(description), unit: unit, purchasePriceInCents: purchasePriceInCents, salePriceInCents: salePriceInCents, stock: stock, reservedStock: reservedStock, active: active, performedBy: strings.TrimSpace(performedBy)}, nil
 }
 func (p Part) ID() string                  { return p.id }
 func (p Part) SKU() string                 { return p.sku }
@@ -98,6 +101,8 @@ func (p Part) Unit() string                { return p.unit }
 func (p Part) PurchasePriceInCents() int64 { return p.purchasePriceInCents }
 func (p Part) SalePriceInCents() int64     { return p.salePriceInCents }
 func (p Part) Stock() int64                { return p.stock }
+func (p Part) ReservedStock() int64        { return p.reservedStock }
+func (p Part) AvailableStock() int64       { return p.stock - p.reservedStock }
 func (p Part) Active() bool                { return p.active }
 func (p Part) PerformedBy() string         { return p.performedBy }
 

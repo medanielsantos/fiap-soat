@@ -15,6 +15,11 @@ import (
 	vehiclecustomer "github.com/medanielsantos/fiap-soat/internal/vehicle/adapters/out/customer"
 	vehiclepostgres "github.com/medanielsantos/fiap-soat/internal/vehicle/adapters/out/postgres"
 	vehicleapp "github.com/medanielsantos/fiap-soat/internal/vehicle/application"
+	workorderhttp "github.com/medanielsantos/fiap-soat/internal/workorder/adapters/in/http"
+	workordercatalog "github.com/medanielsantos/fiap-soat/internal/workorder/adapters/out/catalog"
+	workorderownership "github.com/medanielsantos/fiap-soat/internal/workorder/adapters/out/customervehicle"
+	workorderpostgres "github.com/medanielsantos/fiap-soat/internal/workorder/adapters/out/postgres"
+	workorderapp "github.com/medanielsantos/fiap-soat/internal/workorder/application"
 	"go.uber.org/dig"
 )
 
@@ -78,6 +83,45 @@ func New() (*dig.Container, error) {
 		return nil, err
 	}
 	if err := container.Provide(cataloghttp.NewHandler); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(database.NewTransactionManager); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(workorderpostgres.NewRepository); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func(repository *workorderpostgres.Repository) workorderapp.Store { return repository }); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func(manager *database.TransactionManager) workorderapp.TransactionManager { return manager }); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func() workorderapp.IDGenerator { return platformid.UUIDGenerator{} }); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(workorderownership.NewDirectory); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func(directory *workorderownership.Directory) workorderapp.Ownership { return directory }); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(workordercatalog.NewDirectory); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func(directory *workordercatalog.Directory) workorderapp.Catalog { return directory }); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(workordercatalog.NewInventory); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(func(inventory *workordercatalog.Inventory) workorderapp.Inventory { return inventory }); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(workorderapp.NewService); err != nil {
+		return nil, err
+	}
+	if err := container.Provide(workorderhttp.NewHandler); err != nil {
 		return nil, err
 	}
 	if err := container.Provide(httpserver.NewEngine); err != nil {

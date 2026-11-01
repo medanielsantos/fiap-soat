@@ -51,6 +51,8 @@ type partDTO struct {
 	PurchasePriceInCents int64  `json:"purchase_price_in_cents"`
 	SalePriceInCents     int64  `json:"sale_price_in_cents"`
 	Stock                int64  `json:"stock"`
+	ReservedStock        int64  `json:"reserved_stock"`
+	AvailableStock       int64  `json:"available_stock"`
 	PerformedBy          string `json:"created_by"`
 	Active               bool   `json:"active"`
 }
@@ -156,7 +158,7 @@ func (h *Handler) createPart(c *echo.Context) error {
 		return fail(c, e)
 	}
 	c.Response().Header().Set(echo.HeaderLocation, "/api/v1/parts/"+v.ID())
-	return c.JSON(http.StatusCreated, partDTO{ID: v.ID(), SKU: v.SKU(), InternalCode: v.InternalCode(), Name: v.Name(), Description: v.Description(), Unit: v.Unit(), PurchasePriceInCents: v.PurchasePriceInCents(), SalePriceInCents: v.SalePriceInCents(), Stock: v.Stock(), PerformedBy: v.PerformedBy(), Active: v.Active()})
+	return c.JSON(http.StatusCreated, partDTO{ID: v.ID(), SKU: v.SKU(), InternalCode: v.InternalCode(), Name: v.Name(), Description: v.Description(), Unit: v.Unit(), PurchasePriceInCents: v.PurchasePriceInCents(), SalePriceInCents: v.SalePriceInCents(), Stock: v.Stock(), ReservedStock: v.ReservedStock(), AvailableStock: v.AvailableStock(), PerformedBy: v.PerformedBy(), Active: v.Active()})
 }
 func (h *Handler) listParts(c *echo.Context) error {
 	p, e := pagination.Parse(c.QueryParam("page"), c.QueryParam("per_page"))
@@ -172,7 +174,7 @@ func (h *Handler) listParts(c *echo.Context) error {
 	}
 	out := make([]partDTO, 0, len(page.Items))
 	for _, v := range page.Items {
-		out = append(out, partDTO{ID: v.ID(), SKU: v.SKU(), InternalCode: v.InternalCode(), Name: v.Name(), Description: v.Description(), Unit: v.Unit(), PurchasePriceInCents: v.PurchasePriceInCents(), SalePriceInCents: v.SalePriceInCents(), Stock: v.Stock(), PerformedBy: v.PerformedBy(), Active: v.Active()})
+		out = append(out, partDTO{ID: v.ID(), SKU: v.SKU(), InternalCode: v.InternalCode(), Name: v.Name(), Description: v.Description(), Unit: v.Unit(), PurchasePriceInCents: v.PurchasePriceInCents(), SalePriceInCents: v.SalePriceInCents(), Stock: v.Stock(), ReservedStock: v.ReservedStock(), AvailableStock: v.AvailableStock(), PerformedBy: v.PerformedBy(), Active: v.Active()})
 	}
 	return c.JSON(http.StatusOK, pagination.NewResponse(pagination.NewPage(out, p, page.TotalItems), c.Request().URL.String()))
 }
@@ -181,7 +183,7 @@ func (h *Handler) getPart(c *echo.Context) error {
 	if e != nil {
 		return fail(c, e)
 	}
-	return c.JSON(http.StatusOK, partDTO{ID: v.ID(), SKU: v.SKU(), InternalCode: v.InternalCode(), Name: v.Name(), Description: v.Description(), Unit: v.Unit(), PurchasePriceInCents: v.PurchasePriceInCents(), SalePriceInCents: v.SalePriceInCents(), Stock: v.Stock(), PerformedBy: v.PerformedBy(), Active: v.Active()})
+	return c.JSON(http.StatusOK, partDTO{ID: v.ID(), SKU: v.SKU(), InternalCode: v.InternalCode(), Name: v.Name(), Description: v.Description(), Unit: v.Unit(), PurchasePriceInCents: v.PurchasePriceInCents(), SalePriceInCents: v.SalePriceInCents(), Stock: v.Stock(), ReservedStock: v.ReservedStock(), AvailableStock: v.AvailableStock(), PerformedBy: v.PerformedBy(), Active: v.Active()})
 }
 func (h *Handler) updatePart(c *echo.Context) error {
 	var x partInput
@@ -192,7 +194,7 @@ func (h *Handler) updatePart(c *echo.Context) error {
 	if e != nil {
 		return fail(c, e)
 	}
-	return c.JSON(http.StatusOK, partDTO{ID: v.ID(), SKU: v.SKU(), InternalCode: v.InternalCode(), Name: v.Name(), Description: v.Description(), Unit: v.Unit(), PurchasePriceInCents: v.PurchasePriceInCents(), SalePriceInCents: v.SalePriceInCents(), Stock: v.Stock(), PerformedBy: v.PerformedBy(), Active: v.Active()})
+	return c.JSON(http.StatusOK, partDTO{ID: v.ID(), SKU: v.SKU(), InternalCode: v.InternalCode(), Name: v.Name(), Description: v.Description(), Unit: v.Unit(), PurchasePriceInCents: v.PurchasePriceInCents(), SalePriceInCents: v.SalePriceInCents(), Stock: v.Stock(), ReservedStock: v.ReservedStock(), AvailableStock: v.AvailableStock(), PerformedBy: v.PerformedBy(), Active: v.Active()})
 }
 func (h *Handler) deletePart(c *echo.Context) error {
 	if e := h.service.DeletePart(c.Request().Context(), c.Param("id")); e != nil {
@@ -209,7 +211,7 @@ func (h *Handler) moveStock(c *echo.Context) error {
 	if e != nil {
 		return fail(c, e)
 	}
-	return c.JSON(http.StatusOK, partDTO{ID: v.ID(), SKU: v.SKU(), InternalCode: v.InternalCode(), Name: v.Name(), Description: v.Description(), Unit: v.Unit(), PurchasePriceInCents: v.PurchasePriceInCents(), SalePriceInCents: v.SalePriceInCents(), Stock: v.Stock(), PerformedBy: v.PerformedBy(), Active: v.Active()})
+	return c.JSON(http.StatusOK, partDTO{ID: v.ID(), SKU: v.SKU(), InternalCode: v.InternalCode(), Name: v.Name(), Description: v.Description(), Unit: v.Unit(), PurchasePriceInCents: v.PurchasePriceInCents(), SalePriceInCents: v.SalePriceInCents(), Stock: v.Stock(), ReservedStock: v.ReservedStock(), AvailableStock: v.AvailableStock(), PerformedBy: v.PerformedBy(), Active: v.Active()})
 }
 func decode(c *echo.Context, v any) error {
 	d := json.NewDecoder(c.Request().Body)

@@ -1,6 +1,6 @@
 # ADR-007 — Máquina de estados da OS
 
-- **Estado:** Proposto — validar regra de orçamento rejeitado
+- **Estado:** Aceito
 - **Data:** 2026-10-25
 
 ## Contexto
@@ -19,7 +19,7 @@ Representar status como enumeração do domínio e permitir apenas as transiçõ
 | Em execução | Finalizar serviço | Finalizada |
 | Finalizada | Registrar entrega | Entregue |
 
-Rejeição de orçamento deve ser registrada como decisão/histórico. **Proposta:** retornar OS para Em diagnóstico para revisão e emissão de nova versão do orçamento. Transições inválidas retornam conflito e não alteram a OS.
+Rejeição de orçamento deve ser registrada como decisão/histórico e retornar a OS para Em diagnóstico para revisão e emissão de nova versão do orçamento. Transições inválidas retornam conflito e não alteram a OS.
 
 ## Alternativas consideradas
 
@@ -31,4 +31,4 @@ Rejeição de orçamento deve ser registrada como decisão/histórico. **Propost
 - Cada transição registra instante, ator e origem/destino.
 - Mudanças de status são realizadas por casos de uso específicos, não por CRUD genérico.
 - A resposta HTTP usa `409` para conflito de estado.
-- **Pendente:** confirmar retorno a diagnóstico após rejeição e se haverá cancelamento de OS no MVP.
+- Cancelamento de OS permanece fora do MVP.

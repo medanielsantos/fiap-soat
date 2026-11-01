@@ -15,6 +15,10 @@ var (
 type IDGenerator interface {
 	NewID(context.Context) (string, error)
 }
+type StockRequirement struct {
+	PartID, MovementID string
+	Quantity           int64
+}
 type Store interface {
 	SaveService(context.Context, domain.Service) error
 	FindService(context.Context, string) (domain.Service, error)
@@ -27,6 +31,8 @@ type Store interface {
 	UpdatePart(context.Context, domain.Part) error
 	DeletePart(context.Context, string) error
 	MoveStock(context.Context, domain.StockMovement) (domain.Part, error)
+	ReserveStock(context.Context, string, string, []StockRequirement) error
+	ConsumeReservedStock(context.Context, string, string, []StockRequirement) error
 }
 type CatalogService struct {
 	store Store
@@ -89,7 +95,7 @@ func (s *CatalogService) CreatePart(ctx context.Context, in PartInput) (domain.P
 	if e != nil {
 		return domain.Part{}, e
 	}
-	v, e := domain.NewPart(id, in.SKU, in.InternalCode, in.Name, in.Description, in.Unit, in.PurchasePriceInCents, in.SalePriceInCents, in.InitialStock, in.Active, in.PerformedBy)
+	v, e := domain.NewPart(id, in.SKU, in.InternalCode, in.Name, in.Description, in.Unit, in.PurchasePriceInCents, in.SalePriceInCents, in.InitialStock, 0, in.Active, in.PerformedBy)
 	if e != nil {
 		return domain.Part{}, e
 	}
@@ -107,7 +113,7 @@ func (s *CatalogService) UpdatePart(ctx context.Context, id string, in PartInput
 	if e != nil {
 		return domain.Part{}, e
 	}
-	v, e := domain.NewPart(id, in.SKU, in.InternalCode, in.Name, in.Description, in.Unit, in.PurchasePriceInCents, in.SalePriceInCents, current.Stock(), in.Active, in.PerformedBy)
+	v, e := domain.NewPart(id, in.SKU, in.InternalCode, in.Name, in.Description, in.Unit, in.PurchasePriceInCents, in.SalePriceInCents, current.Stock(), current.ReservedStock(), in.Active, in.PerformedBy)
 	if e != nil {
 		return domain.Part{}, e
 	}
@@ -127,4 +133,10 @@ func (s *CatalogService) MoveStock(ctx context.Context, partID string, kind doma
 		return domain.Part{}, e
 	}
 	return s.store.MoveStock(ctx, m)
+}
+func (s *CatalogService) ReserveStock(ctx context.Context, orderID, actor string, requirements []StockRequirement) error {
+	return s.store.ReserveStock(ctx, orderID, actor, requirements)
+}
+func (s *CatalogService) ConsumeReservedStock(ctx context.Context, orderID, actor string, requirements []StockRequirement) error {
+	return s.store.ConsumeReservedStock(ctx, orderID, actor, requirements)
 }
