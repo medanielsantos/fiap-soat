@@ -32,7 +32,17 @@ go run ./cmd/api
 
 A API escuta na porta `8080` por padrão. Defina `APP_HTTP_PORT` para alterar a porta. A rota `GET /health` retorna `{"status":"ok"}`; as rotas da API usam o prefixo `/api/v1`.
 
-O adaptador PostgreSQL usa GORM. Em desenvolvimento local, copie `.env.example` para `.env` e configure `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` e `DB_PASSWORD`. O arquivo `.env` é carregado automaticamente e ignorado pelo Git. Se `DATABASE_URL` estiver definida no ambiente, ela tem prioridade. Ao executar a API na máquina host, use `DB_HOST=localhost`; em Docker Compose, use o nome do serviço PostgreSQL, como `postgres`. As migrações criam as tabelas `customers` e `vehicles`. Aplique as migrações com `make migrate` ou `go run ./cmd/migrate up`; o comando usa a mesma configuração `.env` da API.
+O adaptador PostgreSQL usa GORM. Em desenvolvimento local, copie `.env.example` para `.env` e configure as credenciais do PostgreSQL, `JWT_SECRET` e os dados SMTP. O arquivo `.env` é carregado automaticamente e ignorado pelo Git. `JWT_SECRET` deve ter pelo menos 32 bytes aleatórios. O envio de email usa SMTP com STARTTLS; Mailtrap é apenas uma opção de servidor SMTP. `PASSWORD_RESET_URL` aponta para a página que recebe o parâmetro `token`. Se `DATABASE_URL` estiver definida no ambiente, ela tem prioridade. Aplique as migrações com `make migrate` ou `go run ./cmd/migrate up`.
+
+## Usuários administrativos
+
+- `POST /api/v1/auth/register`: cria o primeiro administrador; após o primeiro cadastro, a rota retorna `409`. Novos administradores são criados por `POST /api/v1/admin-users` com um JWT válido.
+- `PATCH /api/v1/admin-users/{id}/status`: altera o status para `active`, `inactive`, `pending`, `suspended`, `banned` ou `deleted`. Somente usuários ativos podem entrar; uma alteração de status bloqueante também invalida o acesso às rotas protegidas imediatamente.
+- `POST /api/v1/auth/login`: recebe `email` e `password`, retorna `access_token`, `expires_at` e o usuário.
+- `POST /api/v1/auth/password/forgot`: recebe `email` e envia o link de redefinição pelo adaptador SMTP. Retorna `202` sem revelar se o email existe.
+- `POST /api/v1/auth/password/reset`: recebe `token` e `password`; o token expira em 30 minutos e só pode ser usado uma vez.
+
+Senhas precisam ter entre 12 e 72 bytes e o hash bcrypt fica na coluna `password`. Apenas usuários com status `active` autenticam. Rotas administrativas recebem `Authorization: Bearer <access_token>`; o `user_id` das movimentações da OS vem do JWT validado.
 
 ## Clientes
 
@@ -70,14 +80,14 @@ As tabelas de clientes, veículos, serviços e peças têm `created_by` e `updat
 - `POST /api/v1/work-orders` abre uma OS para `customer_id` e `vehicle_id`; valida cliente ativo e vínculo do veículo.
 - `GET /api/v1/work-orders?status=received&page=1&per_page=20` lista OS; `GET /api/v1/work-orders/{id}` consulta OS, itens, versões de orçamento e histórico.
 - `POST /api/v1/work-orders/{id}/diagnosis` grava `diagnosis` e move a OS para diagnóstico.
-- `POST /api/v1/work-orders/{id}/items` inclui snapshot de serviço ou peça (`type`, `catalog_id`, `quantity`); `DELETE /api/v1/work-orders/{id}/items/{item_id}?user_id=...` remove item antes do envio do orçamento.
+- `POST /api/v1/work-orders/{id}/items` inclui snapshot de serviço ou peça (`type`, `catalog_id`, `quantity`); `DELETE /api/v1/work-orders/{id}/items/{item_id}` remove item antes do envio do orçamento.
 - `POST /api/v1/work-orders/{id}/quotes` cria uma versão imutável do orçamento.
 - `POST /api/v1/work-orders/{id}/quotes/approve` recebe `client_id`, registra aprovação e reserva as peças atomicamente; falta de saldo retorna `409` sem aprovar.
 - `POST /api/v1/work-orders/{id}/quotes/reject` recebe `client_id`, registra rejeição e retorna a OS para diagnóstico sem movimentar estoque.
 - `POST /api/v1/work-orders/{id}/consumptions` recebe `part_id` e `quantity`; reduz saldo físico e reserva atomicamente.
 - `POST /api/v1/work-orders/{id}/complete` finaliza após consumir todas as peças. `POST /api/v1/work-orders/{id}/deliver` registra a entrega.
 
-As ações administrativas recebem `user_id`; aprovação e rejeição de orçamento recebem `client_id`. O JWT administrativo e a autorização de cliente ainda serão implementados; neste momento, o identificador é informado no corpo da requisição. O histórico da OS armazena exatamente um dos identificadores por evento.
+As ações administrativas usam o `user_id` do JWT; aprovação e rejeição de orçamento registram `client_id`. O histórico da OS armazena exatamente um dos identificadores por evento.
 
 ## Estrutura Go
 

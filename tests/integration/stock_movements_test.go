@@ -14,7 +14,7 @@ func TestStockMovementHistoryAndDeleteGuard(t *testing.T) {
 	orderID := prepareOrder(t, server, partID, 2)
 	call(t, server, http.MethodPost, "/api/v1/work-orders/"+orderID+"/quotes/approve", map[string]any{"client_id": testClientID}, http.StatusOK)
 	call(t, server, http.MethodDelete, "/api/v1/parts/"+partID, nil, http.StatusConflict)
-	call(t, server, http.MethodPost, "/api/v1/work-orders/"+orderID+"/consumptions", map[string]any{"part_id": partID, "quantity": 1, "user_id": testUserID}, http.StatusOK)
+	call(t, server, http.MethodPost, "/api/v1/work-orders/"+orderID+"/consumptions", map[string]any{"part_id": partID, "quantity": 1}, http.StatusOK)
 	history := call(t, server, http.MethodGet, "/api/v1/parts/"+partID+"/stock-movements?page=1&per_page=20", nil, http.StatusOK)
 	data := history["data"].([]any)
 	if len(data) != 5 {

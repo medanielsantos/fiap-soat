@@ -111,7 +111,7 @@ func (h *Handler) createService(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	v, e := h.service.CreateService(c.Request().Context(), application.ServiceInput{InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, SalePriceInCents: x.SalePriceInCents, EstimatedDurationMinutes: x.EstimatedDurationMinutes, PerformedBy: x.CreatedBy, Active: active(x.Active)})
+	v, e := h.service.CreateService(c.Request().Context(), application.ServiceInput{InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, SalePriceInCents: x.SalePriceInCents, EstimatedDurationMinutes: x.EstimatedDurationMinutes, PerformedBy: authenticatedUserID(c), Active: active(x.Active)})
 	if e != nil {
 		return fail(c, e)
 	}
@@ -148,7 +148,7 @@ func (h *Handler) updateService(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	v, e := h.service.UpdateService(c.Request().Context(), c.Param("id"), application.ServiceInput{InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, SalePriceInCents: x.SalePriceInCents, EstimatedDurationMinutes: x.EstimatedDurationMinutes, PerformedBy: x.UpdatedBy, Active: active(x.Active)})
+	v, e := h.service.UpdateService(c.Request().Context(), c.Param("id"), application.ServiceInput{InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, SalePriceInCents: x.SalePriceInCents, EstimatedDurationMinutes: x.EstimatedDurationMinutes, PerformedBy: authenticatedUserID(c), Active: active(x.Active)})
 	if e != nil {
 		return fail(c, e)
 	}
@@ -165,7 +165,7 @@ func (h *Handler) createPart(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	v, e := h.service.CreatePart(c.Request().Context(), application.PartInput{SKU: x.SKU, InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, Unit: x.Unit, PurchasePriceInCents: x.PurchasePriceInCents, SalePriceInCents: x.SalePriceInCents, InitialStock: x.InitialStock, PerformedBy: x.CreatedBy, Active: active(x.Active)})
+	v, e := h.service.CreatePart(c.Request().Context(), application.PartInput{SKU: x.SKU, InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, Unit: x.Unit, PurchasePriceInCents: x.PurchasePriceInCents, SalePriceInCents: x.SalePriceInCents, InitialStock: x.InitialStock, PerformedBy: authenticatedUserID(c), Active: active(x.Active)})
 	if e != nil {
 		return fail(c, e)
 	}
@@ -202,7 +202,7 @@ func (h *Handler) updatePart(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	v, e := h.service.UpdatePart(c.Request().Context(), c.Param("id"), application.PartInput{SKU: x.SKU, InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, Unit: x.Unit, PurchasePriceInCents: x.PurchasePriceInCents, SalePriceInCents: x.SalePriceInCents, PerformedBy: x.UpdatedBy, Active: active(x.Active)})
+	v, e := h.service.UpdatePart(c.Request().Context(), c.Param("id"), application.PartInput{SKU: x.SKU, InternalCode: x.InternalCode, Name: x.Name, Description: x.Description, Unit: x.Unit, PurchasePriceInCents: x.PurchasePriceInCents, SalePriceInCents: x.SalePriceInCents, PerformedBy: authenticatedUserID(c), Active: active(x.Active)})
 	if e != nil {
 		return fail(c, e)
 	}
@@ -219,7 +219,7 @@ func (h *Handler) moveStock(c *echo.Context) error {
 	if e := decode(c, &x); e != nil {
 		return bad(c, e)
 	}
-	v, e := h.service.MoveStock(c.Request().Context(), c.Param("id"), x.Type, x.Quantity, x.Description, x.PerformedBy)
+	v, e := h.service.MoveStock(c.Request().Context(), c.Param("id"), x.Type, x.Quantity, x.Description, authenticatedUserID(c))
 	if e != nil {
 		return fail(c, e)
 	}
@@ -242,6 +242,10 @@ func (h *Handler) listStockMovements(c *echo.Context) error {
 		out = append(out, movementDTO{ID: m.ID, PartID: m.PartID, Type: m.Type, Quantity: m.Quantity, Description: m.Description, CreatedBy: m.PerformedBy, WorkOrderID: m.WorkOrderID, CreatedAt: m.CreatedAt})
 	}
 	return c.JSON(http.StatusOK, pagination.NewResponse(pagination.NewPage(out, p, page.TotalItems), c.Request().URL.String()))
+}
+func authenticatedUserID(c *echo.Context) string {
+	userID, _ := c.Get("user_id").(string)
+	return userID
 }
 func decode(c *echo.Context, v any) error {
 	d := json.NewDecoder(c.Request().Body)

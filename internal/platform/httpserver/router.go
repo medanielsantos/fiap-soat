@@ -5,6 +5,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 	customerhttp "github.com/medanielsantos/fiap-soat/internal/customer/adapters/in/http"
+	identityhttp "github.com/medanielsantos/fiap-soat/internal/identity/adapters/in/http"
 	cataloghttp "github.com/medanielsantos/fiap-soat/internal/servicecatalog/adapters/in/http"
 	vehiclehttp "github.com/medanielsantos/fiap-soat/internal/vehicle/adapters/in/http"
 	workorderhttp "github.com/medanielsantos/fiap-soat/internal/workorder/adapters/in/http"
@@ -16,15 +17,17 @@ type Router struct {
 	vehicleHandler   *vehiclehttp.Handler
 	catalogHandler   *cataloghttp.Handler
 	workOrderHandler *workorderhttp.Handler
+	identityHandler  *identityhttp.Handler
 }
 
-func NewRouter(engine *echo.Echo, customerHandler *customerhttp.Handler, vehicleHandler *vehiclehttp.Handler, catalogHandler *cataloghttp.Handler, workOrderHandler *workorderhttp.Handler) *Router {
+func NewRouter(engine *echo.Echo, customerHandler *customerhttp.Handler, vehicleHandler *vehiclehttp.Handler, catalogHandler *cataloghttp.Handler, workOrderHandler *workorderhttp.Handler, identityHandler *identityhttp.Handler) *Router {
 	return &Router{
 		engine:           engine,
 		customerHandler:  customerHandler,
 		vehicleHandler:   vehicleHandler,
 		catalogHandler:   catalogHandler,
 		workOrderHandler: workOrderHandler,
+		identityHandler:  identityHandler,
 	}
 }
 
@@ -34,8 +37,11 @@ func (router *Router) Register() {
 	})
 
 	v1 := router.engine.Group("/api/v1")
-	router.customerHandler.RegisterRoutes(v1.Group("/customers"))
-	router.vehicleHandler.RegisterRoutes(v1.Group("/vehicles"))
-	router.catalogHandler.RegisterRoutes(v1)
-	router.workOrderHandler.RegisterRoutes(v1.Group("/work-orders"))
+	router.identityHandler.RegisterRoutes(v1)
+	admin := v1.Group("")
+	admin.Use(router.identityHandler.RequireAuth())
+	router.customerHandler.RegisterRoutes(admin.Group("/customers"))
+	router.vehicleHandler.RegisterRoutes(admin.Group("/vehicles"))
+	router.catalogHandler.RegisterRoutes(admin)
+	router.workOrderHandler.RegisterRoutes(admin.Group("/work-orders"))
 }
