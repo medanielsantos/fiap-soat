@@ -28,7 +28,9 @@ Escrever o comportamento esperado e a condição relevante; evitar nomes vagos c
 
 ## Integração
 
-Com PostgreSQL, validar migrações, repositórios, constraints, rollback e concorrência. Validar handlers Echo, autorização JWT e respostas RFC 9457 sem stack traces nem dados sensíveis. Se ADR-011 for aceita, incluir testes de integração de TTL/revogação de credenciais temporárias e rate limiting no Redis.
+Com PostgreSQL, validar migrações, repositórios, constraints, handlers HTTP, rollback e concorrência dos fluxos de OS e estoque. Testes de autenticação/autorização JWT ficam fora deste escopo e serão adicionados quando essa capacidade for implementada. Se ADR-011 for aceita, incluir testes de integração de TTL/revogação de credenciais temporárias e rate limiting no Redis.
+
+Os testes em `tests/integration/` criam um schema temporário por cenário e aplicam as migrações nele. Configure `.env.testing` copiando `.env.testing.example` e preenchendo credenciais de um banco PostgreSQL dedicado no qual o usuário possa criar e remover schemas; não use um banco de produção. Execute com `make test-integration`. O workflow do GitHub Actions separa testes unitários/de aplicação e testes de integração em jobs diferentes; o job de integração inicia um PostgreSQL descartável e cria `.env.testing` com credenciais exclusivas do job. O job de cobertura depende de ambos os jobs de teste. Em outros ambientes de CI, injete `TEST_DATABASE_URL` ou as variáveis `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` e `DB_SSL_MODE`. Valores do ambiente têm precedência sobre `.env.testing`. Sem configuração de teste, os testes de integração são ignorados. O runner nunca usa `DATABASE_URL` para evitar apontar acidentalmente para a base da aplicação.
 
 ## Onde organizar os testes
 
@@ -54,6 +56,6 @@ Cobrir abertura de OS, vínculo cliente/veículo, diagnóstico, inclusão de ser
 
 ## Cobertura
 
-Meta exigida: mínimo de 80% nos domínios críticos (`work-order` e `service-catalog`). Publicar resultado por pacote e revisar lacunas; não substituir testes de comportamento por cobertura numérica.
+Meta exigida: mínimo de 80% nos pacotes de domínio críticos (`internal/workorder/domain` e `internal/servicecatalog/domain`). Medir com `make test-coverage`; publicar resultado por pacote e revisar lacunas. A cobertura dos adaptadores e casos de uso deve ser acompanhada separadamente; não substituir testes de comportamento por cobertura numérica.
 
 Os comandos de execução serão definidos quando as dependências e a aplicação forem implementadas.

@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   test:
-    name: Tests
+    name: Unit and Application Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -19,7 +19,57 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: go test ./...
+      - run: make test-unit
+
+  integration:
+    name: PostgreSQL Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: fiap_test
+          POSTGRES_USER: fiap_test
+          POSTGRES_PASSWORD: fiap_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fiap_test -d fiap_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Configure integration test database
+        run: |
+          cat > .env.testing <<'EOF'
+          DB_HOST=localhost
+          DB_PORT=5432
+          DB_NAME=fiap_test
+          DB_USER=fiap_test
+          DB_PASSWORD=fiap_test
+          DB_SSL_MODE=disable
+          EOF
+      - run: make test-integration
+      - name: Remove temporary test credentials
+        if: always()
+        run: rm -f .env.testing
+
+  coverage:
+    name: Coverage
+    needs: [test, integration]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make test-coverage
 
   lint:
     name: Lint

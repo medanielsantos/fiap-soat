@@ -14,6 +14,8 @@ import (
 	vehiclehttp "github.com/medanielsantos/fiap-soat/internal/vehicle/adapters/in/http"
 	vehicleapp "github.com/medanielsantos/fiap-soat/internal/vehicle/application"
 	vehicledomain "github.com/medanielsantos/fiap-soat/internal/vehicle/domain"
+	workorderhttp "github.com/medanielsantos/fiap-soat/internal/workorder/adapters/in/http"
+	workorderapp "github.com/medanielsantos/fiap-soat/internal/workorder/application"
 )
 
 type routeTestCustomerStore struct{}
@@ -51,13 +53,21 @@ type routeTestIDGenerator struct{}
 func (routeTestIDGenerator) NewID(context.Context) (string, error) { return "id", nil }
 
 type routeTestCatalogStore struct{ catalogapp.Store }
+type routeTestWorkOrderStore struct{ workorderapp.Store }
+type routeTestWorkOrderDependencies struct {
+	workorderapp.TransactionManager
+	workorderapp.Ownership
+	workorderapp.Catalog
+	workorderapp.Inventory
+}
 
 func TestRouterRegistersVersionedRoutes(t *testing.T) {
 	e := echo.New()
 	service := application.NewCustomerService(routeTestCustomerStore{}, routeTestIDGenerator{})
 	vehicleService := vehicleapp.NewVehicleService(routeTestVehicleStore{}, routeTestCustomerDirectory{}, routeTestIDGenerator{})
 	catalogService := catalogapp.NewCatalogService(routeTestCatalogStore{}, routeTestIDGenerator{})
-	router := NewRouter(e, customerhttp.NewHandler(service), vehiclehttp.NewHandler(vehicleService), cataloghttp.NewHandler(catalogService))
+	workOrderService := workorderapp.NewService(routeTestWorkOrderStore{}, routeTestWorkOrderDependencies{}, routeTestIDGenerator{}, routeTestWorkOrderDependencies{}, routeTestWorkOrderDependencies{}, routeTestWorkOrderDependencies{})
+	router := NewRouter(e, customerhttp.NewHandler(service), vehiclehttp.NewHandler(vehicleService), cataloghttp.NewHandler(catalogService), workorderhttp.NewHandler(workOrderService))
 	router.Register()
 
 	registered := make(map[string]bool)
@@ -80,6 +90,9 @@ func TestRouterRegistersVersionedRoutes(t *testing.T) {
 		"GET /api/v1/services",
 		"POST /api/v1/parts",
 		"POST /api/v1/parts/:id/stock-movements",
+		"POST /api/v1/work-orders",
+		"POST /api/v1/work-orders/:id/quotes/approve",
+		"POST /api/v1/work-orders/:id/consumptions",
 	} {
 		if !registered[route] {
 			t.Errorf("route %q was not registered", route)

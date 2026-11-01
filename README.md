@@ -59,10 +59,25 @@ A placa aceita os formatos antigo (`ABC1234`) e Mercosul (`ABC1D23`), com ou sem
 - `/api/v1/services`: `POST`, `GET` paginado, `GET /{id}`, `PUT /{id}` e `DELETE /{id}` para serviços. Cada serviço tem `internal_code`, `sale_price_in_cents` e `estimated_duration_minutes`.
 - `/api/v1/parts`: mesmos endpoints para peças e insumos. Cada peça tem `sku`, `internal_code`, `purchase_price_in_cents`, `sale_price_in_cents` e `unit`. No cadastro, `initial_stock` inicia o saldo (padrão `0`); atualizações não alteram o saldo.
 - `POST /api/v1/parts/{id}/stock-movements`: registra entrada (`{"type":"entry","quantity":5,"created_by":"user-id"}`) ou saída (`{"type":"exit","quantity":2,"created_by":"user-id"}`), com `description` e `created_by` opcionais. Saídas acima do saldo disponível retornam `409`.
+- `GET /api/v1/parts/{id}/stock-movements?page=1&per_page=20`: consulta o histórico paginado de entradas, saídas, reservas e consumos vinculados a OS. O saldo informado separa quantidade física, reservada e disponível. Peças com saldo ou reserva não podem ser excluídas.
 
-Todos os valores monetários usam centavos inteiros (`*_price_in_cents`). SKU e códigos internos são únicos entre registros ativos. Os movimentos são registrados em histórico imutável; reservas e consumo vinculados à aprovação de OS dependem da implementação do módulo de ordens de serviço.
+Todos os valores monetários usam centavos inteiros (`*_price_in_cents`). SKU e códigos internos são únicos entre registros ativos. Entradas, saídas, reservas e consumos são registrados em histórico imutável.
 
 As tabelas de clientes, veículos, serviços e peças têm `created_by` e `updated_by`; movimentos de estoque têm `created_by`. Os campos ainda não têm chave estrangeira; as constraints serão adicionadas quando o cadastro de usuários estiver definido.
+
+## Ordens de serviço
+
+- `POST /api/v1/work-orders` abre uma OS para `customer_id` e `vehicle_id`; valida cliente ativo e vínculo do veículo.
+- `GET /api/v1/work-orders?status=received&page=1&per_page=20` lista OS; `GET /api/v1/work-orders/{id}` consulta OS, itens, versões de orçamento e histórico.
+- `POST /api/v1/work-orders/{id}/diagnosis` grava `diagnosis` e move a OS para diagnóstico.
+- `POST /api/v1/work-orders/{id}/items` inclui snapshot de serviço ou peça (`type`, `catalog_id`, `quantity`); `DELETE /api/v1/work-orders/{id}/items/{item_id}?actor_id=...` remove item antes do envio do orçamento.
+- `POST /api/v1/work-orders/{id}/quotes` cria uma versão imutável do orçamento.
+- `POST /api/v1/work-orders/{id}/quotes/approve` registra aprovação e reserva as peças atomicamente; falta de saldo retorna `409` sem aprovar.
+- `POST /api/v1/work-orders/{id}/quotes/reject` registra rejeição e retorna a OS para diagnóstico sem movimentar estoque.
+- `POST /api/v1/work-orders/{id}/consumptions` recebe `part_id` e `quantity`; reduz saldo físico e reserva atomicamente.
+- `POST /api/v1/work-orders/{id}/complete` finaliza após consumir todas as peças. `POST /api/v1/work-orders/{id}/deliver` registra a entrega.
+
+As rotas de transição recebem `actor_id`. O JWT administrativo e a autorização de cliente ainda serão implementados; neste momento, o identificador é informado no corpo da requisição.
 
 ## Estrutura Go
 
@@ -140,7 +155,7 @@ PostgreSQL foi escolhido por transações ACID, constraints e integridade refere
 
 ## Segurança e qualidade
 
-Rotas administrativas exigem JWT; o acesso do cliente ao acompanhamento é autorizado separadamente e limitado à sua OS. Planejar testes unitários do domínio e casos de uso, testes de integração com PostgreSQL e cobertura mínima de 80% nos domínios críticos. Não há comandos de execução até a implementação da aplicação.
+Rotas administrativas exigem JWT; o acesso do cliente ao acompanhamento é autorizado separadamente e limitado à sua OS. A meta é cobertura mínima de 80% nos domínios críticos. Execute `make test-unit` para os testes unitários/de aplicação e `make test-integration` para os testes PostgreSQL. Para testes de integração locais, copie `.env.testing.example` para `.env.testing` e preencha as credenciais de uma base dedicada; no CI, as credenciais são criadas para o serviço PostgreSQL do job. `make test` continua executando todos os pacotes disponíveis. Para medir a cobertura dos domínios críticos, use `make test-coverage`.
 
 ## Documentação técnica
 
