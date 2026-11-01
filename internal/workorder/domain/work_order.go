@@ -23,6 +23,7 @@ var (
 	ErrInvalidTransition       = errors.New("work order transition is not allowed")
 	ErrInvalidItem             = errors.New("work order item is invalid")
 	ErrInvalidDiagnosis        = errors.New("diagnosis is required")
+	ErrInvalidPrincipal        = errors.New("user_id or client_id is required")
 	ErrQuoteEmpty              = errors.New("cannot submit an empty quote")
 	ErrQuoteUnavailable        = errors.New("there is no pending quote")
 	ErrInvalidQuantity         = errors.New("quantity must be positive")
@@ -75,20 +76,21 @@ type QuoteItem struct {
 	SubtotalInCents int64 `json:"subtotal_in_cents"`
 }
 type Quote struct {
-	ID           string      `json:"id"`
-	Version      int         `json:"version"`
-	TotalInCents int64       `json:"total_in_cents"`
-	Decision     string      `json:"decision"`
-	CreatedBy    string      `json:"created_by,omitempty"`
-	DecidedBy    string      `json:"decided_by,omitempty"`
-	DecidedAt    *time.Time  `json:"decided_at,omitempty"`
-	Items        []QuoteItem `json:"items"`
+	ID                string      `json:"id"`
+	Version           int         `json:"version"`
+	TotalInCents      int64       `json:"total_in_cents"`
+	Decision          string      `json:"decision"`
+	CreatedBy         string      `json:"created_by,omitempty"`
+	DecidedByClientID string      `json:"decided_by_client_id,omitempty"`
+	DecidedAt         *time.Time  `json:"decided_at,omitempty"`
+	Items             []QuoteItem `json:"items"`
 }
 type HistoryEntry struct {
 	ID        string    `json:"id"`
 	From      *Status   `json:"from_status,omitempty"`
 	To        Status    `json:"to_status"`
-	ActorID   string    `json:"actor_id,omitempty"`
+	UserID    string    `json:"user_id,omitempty"`
+	ClientID  string    `json:"client_id,omitempty"`
 	Note      string    `json:"note,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -109,14 +111,17 @@ type WorkOrder struct {
 	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
-func NewWorkOrder(id, customerID, vehicleID, actor string, now time.Time) (WorkOrder, HistoryEntry, error) {
+func NewWorkOrder(id, customerID, vehicleID, userID string, now time.Time) (WorkOrder, HistoryEntry, error) {
 	if strings.TrimSpace(id) == "" || strings.TrimSpace(customerID) == "" || strings.TrimSpace(vehicleID) == "" {
 		return WorkOrder{}, HistoryEntry{}, ErrInvalidOrder
 	}
-	o := WorkOrder{ID: id, CustomerID: customerID, VehicleID: vehicleID, Status: Received, Items: []Item{}, Quotes: []Quote{}, CreatedBy: actor, UpdatedBy: actor, CreatedAt: now, UpdatedAt: now}
-	return o, o.event(nil, Received, actor, "work order created", now), nil
+	if strings.TrimSpace(userID) == "" {
+		return WorkOrder{}, HistoryEntry{}, ErrInvalidPrincipal
+	}
+	o := WorkOrder{ID: id, CustomerID: customerID, VehicleID: vehicleID, Status: Received, Items: []Item{}, Quotes: []Quote{}, CreatedBy: userID, UpdatedBy: userID, CreatedAt: now, UpdatedAt: now}
+	return o, o.event(nil, Received, userID, "work order created", now), nil
 }
-func (o *WorkOrder) SetDiagnosis(text, actor string, now time.Time) (HistoryEntry, error) {
+func (o *WorkOrder) SetDiagnosis(text, userID string, now time.Time) (HistoryEntry, error) {
 	if o.Status != Received && o.Status != Diagnosis {
 		return HistoryEntry{}, ErrInvalidTransition
 	}
@@ -126,9 +131,9 @@ func (o *WorkOrder) SetDiagnosis(text, actor string, now time.Time) (HistoryEntr
 	from := o.Status
 	o.Diagnosis = strings.TrimSpace(text)
 	o.Status = Diagnosis
-	return o.changed(from, Diagnosis, actor, "diagnosis recorded", now), nil
+	return o.changed(from, Diagnosis, userID, "diagnosis recorded", now), nil
 }
-func (o *WorkOrder) AddItem(item Item, actor string, now time.Time) (HistoryEntry, error) {
+func (o *WorkOrder) AddItem(item Item, userID string, now time.Time) (HistoryEntry, error) {
 	if o.Status != Diagnosis {
 		return HistoryEntry{}, ErrInvalidTransition
 	}
@@ -138,29 +143,29 @@ func (o *WorkOrder) AddItem(item Item, actor string, now time.Time) (HistoryEntr
 		}
 	}
 	o.Items = append(o.Items, item)
-	o.UpdatedBy = actor
+	o.UpdatedBy = userID
 	o.UpdatedAt = now
-	return o.event(nil, o.Status, actor, "item added", now), nil
+	return o.event(nil, o.Status, userID, "item added", now), nil
 }
-func (o *WorkOrder) RemoveItem(id, actor string, now time.Time) (HistoryEntry, error) {
+func (o *WorkOrder) RemoveItem(id, userID string, now time.Time) (HistoryEntry, error) {
 	if o.Status != Diagnosis {
 		return HistoryEntry{}, ErrInvalidTransition
 	}
 	for i, item := range o.Items {
 		if item.ID == id {
 			o.Items = append(o.Items[:i], o.Items[i+1:]...)
-			o.UpdatedBy = actor
+			o.UpdatedBy = userID
 			o.UpdatedAt = now
-			return o.event(nil, o.Status, actor, "item removed", now), nil
+			return o.event(nil, o.Status, userID, "item removed", now), nil
 		}
 	}
 	return HistoryEntry{}, ErrInvalidItem
 }
-func (o *WorkOrder) SubmitQuote(id, actor string, now time.Time) (Quote, HistoryEntry, error) {
+func (o *WorkOrder) SubmitQuote(id, userID string, now time.Time) (Quote, HistoryEntry, error) {
 	if o.Status != Diagnosis || len(o.Items) == 0 {
 		return Quote{}, HistoryEntry{}, ErrQuoteEmpty
 	}
-	q := Quote{ID: id, Version: o.QuoteVersion + 1, Decision: "pending", CreatedBy: actor, Items: make([]QuoteItem, 0, len(o.Items))}
+	q := Quote{ID: id, Version: o.QuoteVersion + 1, Decision: "pending", CreatedBy: userID, Items: make([]QuoteItem, 0, len(o.Items))}
 	for _, item := range o.Items {
 		subtotal, e := item.SubtotalInCents()
 		if e != nil {
@@ -176,10 +181,10 @@ func (o *WorkOrder) SubmitQuote(id, actor string, now time.Time) (Quote, History
 	o.Quotes = append(o.Quotes, q)
 	from := o.Status
 	o.Status = AwaitingApproval
-	entry := o.changed(from, AwaitingApproval, actor, "quote submitted", now)
+	entry := o.changed(from, AwaitingApproval, userID, "quote submitted", now)
 	return q, entry, nil
 }
-func (o *WorkOrder) DecideQuote(approve bool, actor string, now time.Time) (HistoryEntry, error) {
+func (o *WorkOrder) DecideQuote(approve bool, clientID string, now time.Time) (HistoryEntry, error) {
 	if o.Status != AwaitingApproval || len(o.Quotes) == 0 {
 		return HistoryEntry{}, ErrQuoteUnavailable
 	}
@@ -187,8 +192,11 @@ func (o *WorkOrder) DecideQuote(approve bool, actor string, now time.Time) (Hist
 	if q.Decision != "pending" || q.Version != o.QuoteVersion {
 		return HistoryEntry{}, ErrQuoteUnavailable
 	}
+	if strings.TrimSpace(clientID) == "" {
+		return HistoryEntry{}, ErrInvalidPrincipal
+	}
 	q.DecidedAt = &now
-	q.DecidedBy = actor
+	q.DecidedByClientID = clientID
 	from := o.Status
 	if approve {
 		q.Decision = "approved"
@@ -201,9 +209,9 @@ func (o *WorkOrder) DecideQuote(approve bool, actor string, now time.Time) (Hist
 	if approve {
 		note = "quote approved"
 	}
-	return o.changed(from, o.Status, actor, note, now), nil
+	return o.changedByClient(from, o.Status, clientID, note, now), nil
 }
-func (o *WorkOrder) Consume(partID string, quantity int64, actor string, now time.Time) (HistoryEntry, error) {
+func (o *WorkOrder) Consume(partID string, quantity int64, userID string, now time.Time) (HistoryEntry, error) {
 	if o.Status != InProgress {
 		return HistoryEntry{}, ErrInvalidTransition
 	}
@@ -236,11 +244,11 @@ func (o *WorkOrder) Consume(partID string, quantity int64, actor string, now tim
 			break
 		}
 	}
-	o.UpdatedBy = actor
+	o.UpdatedBy = userID
 	o.UpdatedAt = now
-	return o.event(nil, o.Status, actor, "reserved parts consumed", now), nil
+	return o.event(nil, o.Status, userID, "reserved parts consumed", now), nil
 }
-func (o *WorkOrder) Complete(actor string, now time.Time) (HistoryEntry, error) {
+func (o *WorkOrder) Complete(userID string, now time.Time) (HistoryEntry, error) {
 	if o.Status != InProgress {
 		return HistoryEntry{}, ErrInvalidTransition
 	}
@@ -249,26 +257,36 @@ func (o *WorkOrder) Complete(actor string, now time.Time) (HistoryEntry, error) 
 			return HistoryEntry{}, ErrItemsNotConsumed
 		}
 	}
-	return o.changed(o.Status, Completed, actor, "work completed", now), nil
+	return o.changed(o.Status, Completed, userID, "work completed", now), nil
 }
-func (o *WorkOrder) Deliver(actor string, now time.Time) (HistoryEntry, error) {
+func (o *WorkOrder) Deliver(userID string, now time.Time) (HistoryEntry, error) {
 	if o.Status != Completed {
 		return HistoryEntry{}, ErrInvalidTransition
 	}
-	return o.changed(o.Status, Delivered, actor, "vehicle delivered", now), nil
+	return o.changed(o.Status, Delivered, userID, "vehicle delivered", now), nil
 }
-func (o *WorkOrder) RestoreTransition(status Status, actor, note string, now time.Time) {
+func (o *WorkOrder) RestoreTransition(status Status, userID, note string, now time.Time) {
 	o.Status = status
-	o.UpdatedBy = actor
+	o.UpdatedBy = userID
 	o.UpdatedAt = now
 }
-func (o *WorkOrder) event(from *Status, to Status, actor, note string, now time.Time) HistoryEntry {
-	return HistoryEntry{To: to, ActorID: actor, Note: note, CreatedAt: now}
+func (o *WorkOrder) event(from *Status, to Status, userID, note string, now time.Time) HistoryEntry {
+	return HistoryEntry{To: to, UserID: userID, Note: note, CreatedAt: now}
 }
-func (o *WorkOrder) changed(from, to Status, actor, note string, now time.Time) HistoryEntry {
+func (o *WorkOrder) changed(from, to Status, userID, note string, now time.Time) HistoryEntry {
 	o.Status = to
-	o.UpdatedBy = actor
+	o.UpdatedBy = userID
 	o.UpdatedAt = now
 	f := from
-	return o.event(&f, to, actor, note, now)
+	return o.event(&f, to, userID, note, now)
+}
+
+func (o *WorkOrder) changedByClient(from, to Status, clientID, note string, now time.Time) HistoryEntry {
+	o.Status = to
+	o.UpdatedBy = clientID
+	o.UpdatedAt = now
+	entry := o.event(nil, to, "", note, now)
+	entry.From = &from
+	entry.ClientID = clientID
+	return entry
 }

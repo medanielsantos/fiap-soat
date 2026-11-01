@@ -64,7 +64,7 @@ func NewService(store Store, tx TransactionManager, ids IDGenerator, ownership O
 	return &Service{store: store, tx: tx, ids: ids, ownership: ownership, catalog: catalog, inventory: inventory, now: time.Now}
 }
 
-func (s *Service) Create(ctx context.Context, customerID, vehicleID, actor string) (domain.WorkOrder, error) {
+func (s *Service) Create(ctx context.Context, customerID, vehicleID, userID string) (domain.WorkOrder, error) {
 	if err := s.ownership.Validate(ctx, customerID, vehicleID); err != nil {
 		return domain.WorkOrder{}, ErrCustomerOrVehicleUnavailable
 	}
@@ -76,7 +76,7 @@ func (s *Service) Create(ctx context.Context, customerID, vehicleID, actor strin
 	if err != nil {
 		return domain.WorkOrder{}, err
 	}
-	order, event, err := domain.NewWorkOrder(id, customerID, vehicleID, actor, s.now())
+	order, event, err := domain.NewWorkOrder(id, customerID, vehicleID, userID, s.now())
 	if err != nil {
 		return domain.WorkOrder{}, err
 	}
@@ -92,13 +92,13 @@ func (s *Service) List(ctx context.Context, status string, p pagination.Params) 
 	return s.store.List(ctx, status, p)
 }
 
-func (s *Service) Diagnosis(ctx context.Context, id, text, actor string) (domain.WorkOrder, error) {
-	return s.mutate(ctx, id, actor, func(o *domain.WorkOrder) ([]domain.HistoryEntry, error) {
-		e, err := o.SetDiagnosis(text, actor, s.now())
+func (s *Service) Diagnosis(ctx context.Context, id, text, userID string) (domain.WorkOrder, error) {
+	return s.mutate(ctx, id, func(o *domain.WorkOrder) ([]domain.HistoryEntry, error) {
+		e, err := o.SetDiagnosis(text, userID, s.now())
 		return []domain.HistoryEntry{e}, err
 	})
 }
-func (s *Service) AddItem(ctx context.Context, id string, itemType domain.ItemType, catalogID string, quantity int64, actor string) (domain.WorkOrder, error) {
+func (s *Service) AddItem(ctx context.Context, id string, itemType domain.ItemType, catalogID string, quantity int64, userID string) (domain.WorkOrder, error) {
 	var snapshot CatalogItem
 	var err error
 	switch itemType {
@@ -120,34 +120,34 @@ func (s *Service) AddItem(ctx context.Context, id string, itemType domain.ItemTy
 	if err != nil {
 		return domain.WorkOrder{}, err
 	}
-	return s.mutate(ctx, id, actor, func(o *domain.WorkOrder) ([]domain.HistoryEntry, error) {
-		e, err := o.AddItem(item, actor, s.now())
+	return s.mutate(ctx, id, func(o *domain.WorkOrder) ([]domain.HistoryEntry, error) {
+		e, err := o.AddItem(item, userID, s.now())
 		return []domain.HistoryEntry{e}, err
 	})
 }
-func (s *Service) RemoveItem(ctx context.Context, id, itemID, actor string) (domain.WorkOrder, error) {
-	return s.mutate(ctx, id, actor, func(o *domain.WorkOrder) ([]domain.HistoryEntry, error) {
-		e, err := o.RemoveItem(itemID, actor, s.now())
+func (s *Service) RemoveItem(ctx context.Context, id, itemID, userID string) (domain.WorkOrder, error) {
+	return s.mutate(ctx, id, func(o *domain.WorkOrder) ([]domain.HistoryEntry, error) {
+		e, err := o.RemoveItem(itemID, userID, s.now())
 		return []domain.HistoryEntry{e}, err
 	})
 }
-func (s *Service) SubmitQuote(ctx context.Context, id, actor string) (domain.WorkOrder, error) {
+func (s *Service) SubmitQuote(ctx context.Context, id, userID string) (domain.WorkOrder, error) {
 	quoteID, err := s.ids.NewID(ctx)
 	if err != nil {
 		return domain.WorkOrder{}, err
 	}
-	return s.mutate(ctx, id, actor, func(o *domain.WorkOrder) ([]domain.HistoryEntry, error) {
-		_, e, err := o.SubmitQuote(quoteID, actor, s.now())
+	return s.mutate(ctx, id, func(o *domain.WorkOrder) ([]domain.HistoryEntry, error) {
+		_, e, err := o.SubmitQuote(quoteID, userID, s.now())
 		return []domain.HistoryEntry{e}, err
 	})
 }
-func (s *Service) ApproveQuote(ctx context.Context, id, actor string) (order domain.WorkOrder, err error) {
+func (s *Service) ApproveQuote(ctx context.Context, id, clientID string) (order domain.WorkOrder, err error) {
 	err = s.tx.Within(ctx, func(txctx context.Context) error {
 		o, e := s.store.Find(txctx, id)
 		if e != nil {
 			return e
 		}
-		entry, e := o.DecideQuote(true, actor, s.now())
+		entry, e := o.DecideQuote(true, clientID, s.now())
 		if e != nil {
 			return e
 		}
@@ -159,7 +159,7 @@ func (s *Service) ApproveQuote(ctx context.Context, id, actor string) (order dom
 		if e != nil {
 			return e
 		}
-		if e = s.inventory.Reserve(txctx, o.ID, actor, requirements); e != nil {
+		if e = s.inventory.Reserve(txctx, o.ID, clientID, requirements); e != nil {
 			return e
 		}
 		if e = s.save(txctx, &o, entry); e != nil {
@@ -170,22 +170,22 @@ func (s *Service) ApproveQuote(ctx context.Context, id, actor string) (order dom
 	})
 	return
 }
-func (s *Service) RejectQuote(ctx context.Context, id, actor, note string) (domain.WorkOrder, error) {
-	return s.mutate(ctx, id, actor, func(o *domain.WorkOrder) ([]domain.HistoryEntry, error) {
-		e, err := o.DecideQuote(false, actor, s.now())
+func (s *Service) RejectQuote(ctx context.Context, id, clientID, note string) (domain.WorkOrder, error) {
+	return s.mutate(ctx, id, func(o *domain.WorkOrder) ([]domain.HistoryEntry, error) {
+		e, err := o.DecideQuote(false, clientID, s.now())
 		if err == nil && note != "" {
 			e.Note = note
 		}
 		return []domain.HistoryEntry{e}, err
 	})
 }
-func (s *Service) Consume(ctx context.Context, id, partID string, quantity int64, actor string) (order domain.WorkOrder, err error) {
+func (s *Service) Consume(ctx context.Context, id, partID string, quantity int64, userID string) (order domain.WorkOrder, err error) {
 	err = s.tx.Within(ctx, func(txctx context.Context) error {
 		o, e := s.store.Find(txctx, id)
 		if e != nil {
 			return e
 		}
-		entry, e := o.Consume(partID, quantity, actor, s.now())
+		entry, e := o.Consume(partID, quantity, userID, s.now())
 		if e != nil {
 			return e
 		}
@@ -197,7 +197,7 @@ func (s *Service) Consume(ctx context.Context, id, partID string, quantity int64
 		if e != nil {
 			return e
 		}
-		if e = s.inventory.Consume(txctx, o.ID, actor, []StockRequirement{{PartID: partID, MovementID: movementID, Quantity: quantity}}); e != nil {
+		if e = s.inventory.Consume(txctx, o.ID, userID, []StockRequirement{{PartID: partID, MovementID: movementID, Quantity: quantity}}); e != nil {
 			return e
 		}
 		if e = s.save(txctx, &o, entry); e != nil {
@@ -208,20 +208,20 @@ func (s *Service) Consume(ctx context.Context, id, partID string, quantity int64
 	})
 	return
 }
-func (s *Service) Complete(ctx context.Context, id, actor string) (domain.WorkOrder, error) {
-	return s.mutate(ctx, id, actor, func(o *domain.WorkOrder) ([]domain.HistoryEntry, error) {
-		e, err := o.Complete(actor, s.now())
+func (s *Service) Complete(ctx context.Context, id, userID string) (domain.WorkOrder, error) {
+	return s.mutate(ctx, id, func(o *domain.WorkOrder) ([]domain.HistoryEntry, error) {
+		e, err := o.Complete(userID, s.now())
 		return []domain.HistoryEntry{e}, err
 	})
 }
-func (s *Service) Deliver(ctx context.Context, id, actor string) (domain.WorkOrder, error) {
-	return s.mutate(ctx, id, actor, func(o *domain.WorkOrder) ([]domain.HistoryEntry, error) {
-		e, err := o.Deliver(actor, s.now())
+func (s *Service) Deliver(ctx context.Context, id, userID string) (domain.WorkOrder, error) {
+	return s.mutate(ctx, id, func(o *domain.WorkOrder) ([]domain.HistoryEntry, error) {
+		e, err := o.Deliver(userID, s.now())
 		return []domain.HistoryEntry{e}, err
 	})
 }
 
-func (s *Service) mutate(ctx context.Context, id, actor string, fn func(*domain.WorkOrder) ([]domain.HistoryEntry, error)) (domain.WorkOrder, error) {
+func (s *Service) mutate(ctx context.Context, id string, fn func(*domain.WorkOrder) ([]domain.HistoryEntry, error)) (domain.WorkOrder, error) {
 	var order domain.WorkOrder
 	err := s.tx.Within(ctx, func(txctx context.Context) error {
 		o, e := s.store.Find(txctx, id)
@@ -249,6 +249,9 @@ func (s *Service) mutate(ctx context.Context, id, actor string, fn func(*domain.
 	return order, err
 }
 func (s *Service) save(ctx context.Context, o *domain.WorkOrder, event domain.HistoryEntry) error {
+	if (event.UserID == "") == (event.ClientID == "") {
+		return domain.ErrInvalidPrincipal
+	}
 	o.History = append(o.History, event)
 	return s.store.Save(ctx, *o, event)
 }

@@ -49,15 +49,15 @@ type itemRecord struct {
 func (itemRecord) TableName() string { return "work_order_items" }
 
 type quoteRecord struct {
-	ID           string `gorm:"primaryKey;type:text"`
-	WorkOrderID  string `gorm:"column:work_order_id"`
-	Version      int
-	TotalInCents int64 `gorm:"column:total_in_cents"`
-	Decision     string
-	CreatedBy    string     `gorm:"column:created_by"`
-	DecidedBy    string     `gorm:"column:decided_by"`
-	DecidedAt    *time.Time `gorm:"column:decided_at"`
-	CreatedAt    time.Time
+	ID                string `gorm:"primaryKey;type:text"`
+	WorkOrderID       string `gorm:"column:work_order_id"`
+	Version           int
+	TotalInCents      int64 `gorm:"column:total_in_cents"`
+	Decision          string
+	CreatedBy         string     `gorm:"column:created_by"`
+	DecidedByClientID *string    `gorm:"column:decided_by_client_id"`
+	DecidedAt         *time.Time `gorm:"column:decided_at"`
+	CreatedAt         time.Time
 }
 
 func (quoteRecord) TableName() string { return "work_order_quotes" }
@@ -81,7 +81,8 @@ type historyRecord struct {
 	WorkOrderID string  `gorm:"column:work_order_id"`
 	FromStatus  *string `gorm:"column:from_status"`
 	ToStatus    string  `gorm:"column:to_status"`
-	ActorID     string  `gorm:"column:actor_id"`
+	UserID      *string `gorm:"column:user_id"`
+	ClientID    *string `gorm:"column:client_id"`
 	Note        string
 	CreatedAt   time.Time
 }
@@ -166,7 +167,11 @@ func (r *Repository) load(db *gorm.DB, row orderRecord) (domain.WorkOrder, error
 		return o, e
 	}
 	for _, x := range qr {
-		q := domain.Quote{ID: x.ID, Version: x.Version, TotalInCents: x.TotalInCents, Decision: x.Decision, CreatedBy: x.CreatedBy, DecidedBy: x.DecidedBy, DecidedAt: x.DecidedAt, Items: []domain.QuoteItem{}}
+		decidedByClientID := ""
+		if x.DecidedByClientID != nil {
+			decidedByClientID = *x.DecidedByClientID
+		}
+		q := domain.Quote{ID: x.ID, Version: x.Version, TotalInCents: x.TotalInCents, Decision: x.Decision, CreatedBy: x.CreatedBy, DecidedByClientID: decidedByClientID, DecidedAt: x.DecidedAt, Items: []domain.QuoteItem{}}
 		var qis []quoteItemRecord
 		if e := db.Where("quote_id = ?", x.ID).Find(&qis).Error; e != nil {
 			return o, e
@@ -187,7 +192,14 @@ func (r *Repository) load(db *gorm.DB, row orderRecord) (domain.WorkOrder, error
 			v := domain.Status(*x.FromStatus)
 			from = &v
 		}
-		o.History = append(o.History, domain.HistoryEntry{ID: x.ID, From: from, To: domain.Status(x.ToStatus), ActorID: x.ActorID, Note: x.Note, CreatedAt: x.CreatedAt})
+		userID, clientID := "", ""
+		if x.UserID != nil {
+			userID = *x.UserID
+		}
+		if x.ClientID != nil {
+			clientID = *x.ClientID
+		}
+		o.History = append(o.History, domain.HistoryEntry{ID: x.ID, From: from, To: domain.Status(x.ToStatus), UserID: userID, ClientID: clientID, Note: x.Note, CreatedAt: x.CreatedAt})
 	}
 	return o, nil
 }
@@ -202,10 +214,15 @@ func (r *Repository) saveItems(db *gorm.DB, o domain.WorkOrder) error {
 }
 func (r *Repository) saveQuotes(db *gorm.DB, o domain.WorkOrder) error {
 	for _, q := range o.Quotes {
+		var decidedByClientID *string
+		if q.DecidedByClientID != "" {
+			value := q.DecidedByClientID
+			decidedByClientID = &value
+		}
 		var existing quoteRecord
 		err := db.First(&existing, "id = ?", q.ID).Error
 		if err == nil {
-			if err := db.Model(&quoteRecord{}).Where("id = ?", q.ID).Updates(map[string]any{"decision": q.Decision, "decided_by": q.DecidedBy, "decided_at": q.DecidedAt}).Error; err != nil {
+			if err := db.Model(&quoteRecord{}).Where("id = ?", q.ID).Updates(map[string]any{"decision": q.Decision, "decided_by_client_id": decidedByClientID, "decided_at": q.DecidedAt}).Error; err != nil {
 				return err
 			}
 			continue
@@ -213,7 +230,7 @@ func (r *Repository) saveQuotes(db *gorm.DB, o domain.WorkOrder) error {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
-		row := quoteRecord{ID: q.ID, WorkOrderID: o.ID, Version: q.Version, TotalInCents: q.TotalInCents, Decision: q.Decision, CreatedBy: q.CreatedBy, DecidedBy: q.DecidedBy, DecidedAt: q.DecidedAt}
+		row := quoteRecord{ID: q.ID, WorkOrderID: o.ID, Version: q.Version, TotalInCents: q.TotalInCents, Decision: q.Decision, CreatedBy: q.CreatedBy, DecidedByClientID: decidedByClientID, DecidedAt: q.DecidedAt}
 		if e := db.Create(&row).Error; e != nil {
 			return e
 		}
@@ -236,5 +253,14 @@ func historyFromDomain(id string, e domain.HistoryEntry) *historyRecord {
 		x := string(*e.From)
 		from = &x
 	}
-	return &historyRecord{ID: e.ID, WorkOrderID: id, FromStatus: from, ToStatus: string(e.To), ActorID: e.ActorID, Note: e.Note, CreatedAt: e.CreatedAt}
+	var userID, clientID *string
+	if e.UserID != "" {
+		value := e.UserID
+		userID = &value
+	}
+	if e.ClientID != "" {
+		value := e.ClientID
+		clientID = &value
+	}
+	return &historyRecord{ID: e.ID, WorkOrderID: id, FromStatus: from, ToStatus: string(e.To), UserID: userID, ClientID: clientID, Note: e.Note, CreatedAt: e.CreatedAt}
 }

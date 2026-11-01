@@ -203,11 +203,11 @@ func (r *Repository) ListStockMovements(ctx context.Context, partID string, p pa
 	return pagination.NewPage(items, p, total), nil
 }
 
-func (r *Repository) ReserveStock(ctx context.Context, orderID, actor string, requirements []application.StockRequirement) error {
+func (r *Repository) ReserveStock(ctx context.Context, orderID, clientID string, requirements []application.StockRequirement) error {
 	db := platformdatabase.Current(ctx, r.db)
 	for _, requirement := range requirements {
 		result := db.Model(&partRecord{}).Where("id = ? AND stock - reserved_stock >= ?", requirement.PartID, requirement.Quantity).
-			Updates(map[string]any{"reserved_stock": gorm.Expr("reserved_stock + ?", requirement.Quantity), "updated_at": time.Now(), "updated_by": actor})
+			Updates(map[string]any{"reserved_stock": gorm.Expr("reserved_stock + ?", requirement.Quantity), "updated_at": time.Now(), "updated_by": clientID})
 		if result.Error != nil {
 			return translate(result.Error)
 		}
@@ -222,18 +222,18 @@ func (r *Repository) ReserveStock(ctx context.Context, orderID, actor string, re
 			return domain.ErrInsufficientStock
 		}
 		orderRef := orderID
-		if err := db.Create(&movementRecord{ID: requirement.MovementID, PartID: requirement.PartID, Type: "reservation", Quantity: requirement.Quantity, Description: "reserved for work order", PerformedBy: actor, WorkOrderID: &orderRef}).Error; err != nil {
+		if err := db.Create(&movementRecord{ID: requirement.MovementID, PartID: requirement.PartID, Type: "reservation", Quantity: requirement.Quantity, Description: "reserved for work order", PerformedBy: clientID, WorkOrderID: &orderRef}).Error; err != nil {
 			return translate(err)
 		}
 	}
 	return nil
 }
 
-func (r *Repository) ConsumeReservedStock(ctx context.Context, orderID, actor string, requirements []application.StockRequirement) error {
+func (r *Repository) ConsumeReservedStock(ctx context.Context, orderID, userID string, requirements []application.StockRequirement) error {
 	db := platformdatabase.Current(ctx, r.db)
 	for _, requirement := range requirements {
 		result := db.Model(&partRecord{}).Where("id = ? AND reserved_stock >= ? AND stock >= ?", requirement.PartID, requirement.Quantity, requirement.Quantity).
-			Updates(map[string]any{"reserved_stock": gorm.Expr("reserved_stock - ?", requirement.Quantity), "stock": gorm.Expr("stock - ?", requirement.Quantity), "updated_at": time.Now(), "updated_by": actor})
+			Updates(map[string]any{"reserved_stock": gorm.Expr("reserved_stock - ?", requirement.Quantity), "stock": gorm.Expr("stock - ?", requirement.Quantity), "updated_at": time.Now(), "updated_by": userID})
 		if result.Error != nil {
 			return translate(result.Error)
 		}
@@ -248,7 +248,7 @@ func (r *Repository) ConsumeReservedStock(ctx context.Context, orderID, actor st
 			return domain.ErrInsufficientStock
 		}
 		orderRef := orderID
-		if err := db.Create(&movementRecord{ID: requirement.MovementID, PartID: requirement.PartID, Type: "consumption", Quantity: requirement.Quantity, Description: "consumed for work order", PerformedBy: actor, WorkOrderID: &orderRef}).Error; err != nil {
+		if err := db.Create(&movementRecord{ID: requirement.MovementID, PartID: requirement.PartID, Type: "consumption", Quantity: requirement.Quantity, Description: "consumed for work order", PerformedBy: userID, WorkOrderID: &orderRef}).Error; err != nil {
 			return translate(err)
 		}
 	}

@@ -30,8 +30,8 @@ func (d *Directory) Part(ctx context.Context, id string) (application.CatalogIte
 type Inventory struct{ catalog *catalogapp.CatalogService }
 
 func NewInventory(c *catalogapp.CatalogService) *Inventory { return &Inventory{catalog: c} }
-func (i *Inventory) Reserve(ctx context.Context, orderID, actor string, requirements []application.StockRequirement) error {
-	err := i.catalog.ReserveStock(ctx, orderID, actor, convert(requirements))
+func (i *Inventory) Reserve(ctx context.Context, orderID, clientID string, requirements []application.StockRequirement) error {
+	err := i.catalog.ReserveStock(ctx, orderID, clientID, convert(requirements))
 	if errors.Is(err, catalogdomain.ErrInsufficientStock) {
 		return application.ErrInsufficientStock
 	}
@@ -40,8 +40,8 @@ func (i *Inventory) Reserve(ctx context.Context, orderID, actor string, requirem
 	}
 	return err
 }
-func (i *Inventory) Consume(ctx context.Context, orderID, actor string, requirements []application.StockRequirement) error {
-	err := i.catalog.ConsumeReservedStock(ctx, orderID, actor, convert(requirements))
+func (i *Inventory) Consume(ctx context.Context, orderID, userID string, requirements []application.StockRequirement) error {
+	err := i.catalog.ConsumeReservedStock(ctx, orderID, userID, convert(requirements))
 	if errors.Is(err, catalogdomain.ErrInsufficientStock) {
 		return application.ErrInsufficientStock
 	}

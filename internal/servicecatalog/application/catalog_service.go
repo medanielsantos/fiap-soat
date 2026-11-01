@@ -160,9 +160,9 @@ func (s *CatalogService) ListStockMovements(ctx context.Context, partID string, 
 	}
 	return s.store.ListStockMovements(ctx, partID, p)
 }
-func (s *CatalogService) ReserveStock(ctx context.Context, orderID, actor string, requirements []StockRequirement) error {
-	return s.store.ReserveStock(ctx, orderID, actor, requirements)
+func (s *CatalogService) ReserveStock(ctx context.Context, orderID, clientID string, requirements []StockRequirement) error {
+	return s.store.ReserveStock(ctx, orderID, clientID, requirements)
 }
-func (s *CatalogService) ConsumeReservedStock(ctx context.Context, orderID, actor string, requirements []StockRequirement) error {
-	return s.store.ConsumeReservedStock(ctx, orderID, actor, requirements)
+func (s *CatalogService) ConsumeReservedStock(ctx context.Context, orderID, userID string, requirements []StockRequirement) error {
+	return s.store.ConsumeReservedStock(ctx, orderID, userID, requirements)
 }

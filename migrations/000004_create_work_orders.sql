@@ -40,7 +40,7 @@ CREATE TABLE work_order_quotes (
     total_in_cents BIGINT NOT NULL CHECK (total_in_cents >= 0),
     decision VARCHAR(12) NOT NULL DEFAULT 'pending' CHECK (decision IN ('pending','approved','rejected')),
     created_by TEXT,
-    decided_by TEXT,
+    decided_by_client_id TEXT,
     decided_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(work_order_id, version)
@@ -65,9 +65,13 @@ CREATE TABLE work_order_status_history (
     work_order_id TEXT NOT NULL REFERENCES work_orders(id),
     from_status VARCHAR(24),
     to_status VARCHAR(24) NOT NULL,
-    actor_id TEXT,
+    user_id TEXT,
+    client_id TEXT,
     note TEXT NOT NULL DEFAULT '',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT work_order_history_single_principal CHECK (
+        num_nonnulls(user_id, client_id) = 1
+    )
 );
 CREATE INDEX ix_work_order_history_order ON work_order_status_history(work_order_id, created_at);
 

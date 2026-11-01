@@ -43,7 +43,7 @@ func TestWorkOrderLifecycle(t *testing.T) {
 	if quote.Version != 1 {
 		t.Fatalf("quote version = %d, want 1", quote.Version)
 	}
-	if _, err = o.DecideQuote(false, "customer-1", now); err != nil {
+	if _, err = o.DecideQuote(false, "client-1", now); err != nil {
 		t.Fatal(err)
 	}
 	if o.Status != Diagnosis || o.Quotes[0].Decision != "rejected" {
@@ -52,7 +52,7 @@ func TestWorkOrderLifecycle(t *testing.T) {
 	if _, _, err = o.SubmitQuote("quote-2", "user-1", now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = o.DecideQuote(true, "customer-1", now); err != nil {
+	if _, err = o.DecideQuote(true, "client-1", now); err != nil {
 		t.Fatal(err)
 	}
 	if o.Status != InProgress {
@@ -91,7 +91,7 @@ func TestWorkOrderRejectsInvalidTransitionsAndOverConsumption(t *testing.T) {
 	if _, _, err = o.SubmitQuote("quote-1", "user-1", now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = o.DecideQuote(true, "customer-1", now); err != nil {
+	if _, err = o.DecideQuote(true, "client-1", now); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = o.Consume("part-1", 2, "mechanic-1", now); !errors.Is(err, ErrInsufficientConsumption) {
@@ -101,45 +101,45 @@ func TestWorkOrderRejectsInvalidTransitionsAndOverConsumption(t *testing.T) {
 
 func TestWorkOrderValidationMutationAndOverflowBranches(t *testing.T) {
 	now := time.Now()
-	if _, _, err := NewWorkOrder("", "customer", "vehicle", "actor", now); !errors.Is(err, ErrInvalidOrder) {
+	if _, _, err := NewWorkOrder("", "customer", "vehicle", "user-1", now); !errors.Is(err, ErrInvalidOrder) {
 		t.Fatalf("invalid order error = %v", err)
 	}
-	o, _, err := NewWorkOrder("wo", "customer", "vehicle", "actor", now)
+	o, _, err := NewWorkOrder("wo", "customer", "vehicle", "user-1", now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := o.SetDiagnosis("  ", "actor", now); !errors.Is(err, ErrInvalidDiagnosis) {
+	if _, err := o.SetDiagnosis("  ", "user-1", now); !errors.Is(err, ErrInvalidDiagnosis) {
 		t.Fatalf("empty diagnosis error = %v", err)
 	}
-	if _, _, err := o.SubmitQuote("quote", "actor", now); !errors.Is(err, ErrQuoteEmpty) {
+	if _, _, err := o.SubmitQuote("quote", "user-1", now); !errors.Is(err, ErrQuoteEmpty) {
 		t.Fatalf("empty quote error = %v", err)
 	}
-	if _, err := o.RemoveItem("missing", "actor", now); !errors.Is(err, ErrInvalidTransition) {
+	if _, err := o.RemoveItem("missing", "user-1", now); !errors.Is(err, ErrInvalidTransition) {
 		t.Fatalf("remove item before diagnosis error = %v", err)
 	}
-	if _, err := o.AddItem(Item{ID: "invalid"}, "actor", now); !errors.Is(err, ErrInvalidTransition) {
+	if _, err := o.AddItem(Item{ID: "invalid"}, "user-1", now); !errors.Is(err, ErrInvalidTransition) {
 		t.Fatalf("add item before diagnosis error = %v", err)
 	}
-	if _, err := o.SetDiagnosis("check brakes", "actor", now); err != nil {
+	if _, err := o.SetDiagnosis("check brakes", "user-1", now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := o.RemoveItem("missing", "actor", now); !errors.Is(err, ErrInvalidItem) {
+	if _, err := o.RemoveItem("missing", "user-1", now); !errors.Is(err, ErrInvalidItem) {
 		t.Fatalf("missing item error = %v", err)
 	}
 	part, _ := NewItem("part-item", PartItem, "part", "SKU", "Part", "piece", 1, 100, 0)
-	if _, err := o.AddItem(part, "actor", now); err != nil {
+	if _, err := o.AddItem(part, "user-1", now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := o.AddItem(part, "actor", now); !errors.Is(err, ErrInvalidItem) {
+	if _, err := o.AddItem(part, "user-1", now); !errors.Is(err, ErrInvalidItem) {
 		t.Fatalf("duplicate item error = %v", err)
 	}
-	if _, err := o.RemoveItem("part-item", "actor", now); err != nil {
+	if _, err := o.RemoveItem("part-item", "user-1", now); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := o.SubmitQuote("quote", "actor", now); !errors.Is(err, ErrQuoteEmpty) {
+	if _, _, err := o.SubmitQuote("quote", "user-1", now); !errors.Is(err, ErrQuoteEmpty) {
 		t.Fatalf("quote after removing all items error = %v", err)
 	}
-	if _, err := o.Consume("part", 1, "actor", now); !errors.Is(err, ErrInvalidTransition) {
+	if _, err := o.Consume("part", 1, "user-1", now); !errors.Is(err, ErrInvalidTransition) {
 		t.Fatalf("consume before approval error = %v", err)
 	}
 	item, _ := NewItem("service-item", ServiceItem, "service", "SVC", "Service", "ignored", 1, 100, 1)
@@ -156,7 +156,7 @@ func TestWorkOrderValidationMutationAndOverflowBranches(t *testing.T) {
 		t.Fatal(err)
 	} else {
 		o.Items = []Item{{ID: "large", Type: ServiceItem, CatalogID: "service", Quantity: math.MaxInt64, UnitPriceInCents: 2}}
-		if _, _, err := o.SubmitQuote("overflow", "actor", now); !errors.Is(err, ErrAmountOverflow) {
+		if _, _, err := o.SubmitQuote("overflow", "user-1", now); !errors.Is(err, ErrAmountOverflow) {
 			t.Fatalf("overflow quote error = %v", err)
 		}
 	}
@@ -164,31 +164,34 @@ func TestWorkOrderValidationMutationAndOverflowBranches(t *testing.T) {
 
 func TestWorkOrderQuoteAndCompletionGuards(t *testing.T) {
 	now := time.Now()
-	o, _, _ := NewWorkOrder("wo", "customer", "vehicle", "actor", now)
-	if _, err := o.DecideQuote(true, "actor", now); !errors.Is(err, ErrQuoteUnavailable) {
+	o, _, _ := NewWorkOrder("wo", "customer", "vehicle", "user-1", now)
+	if _, err := o.DecideQuote(true, "client-1", now); !errors.Is(err, ErrQuoteUnavailable) {
 		t.Fatalf("decision without quote error = %v", err)
 	}
-	if _, err := o.Deliver("actor", now); !errors.Is(err, ErrInvalidTransition) {
+	if _, err := o.Deliver("user-1", now); !errors.Is(err, ErrInvalidTransition) {
 		t.Fatalf("deliver before completion error = %v", err)
 	}
-	_, _ = o.SetDiagnosis("repair", "actor", now)
+	_, _ = o.SetDiagnosis("repair", "user-1", now)
 	part, _ := NewItem("item", PartItem, "part", "SKU", "Part", "piece", 1, 100, 0)
-	_, _ = o.AddItem(part, "actor", now)
-	_, _, _ = o.SubmitQuote("quote", "actor", now)
-	_, _ = o.DecideQuote(true, "actor", now)
-	if _, err := o.Complete("actor", now); !errors.Is(err, ErrItemsNotConsumed) {
+	_, _ = o.AddItem(part, "user-1", now)
+	_, _, _ = o.SubmitQuote("quote", "user-1", now)
+	if _, err := o.DecideQuote(true, "", now); !errors.Is(err, ErrInvalidPrincipal) {
+		t.Fatalf("quote decision without client ID error = %v", err)
+	}
+	_, _ = o.DecideQuote(true, "client-1", now)
+	if _, err := o.Complete("user-1", now); !errors.Is(err, ErrItemsNotConsumed) {
 		t.Fatalf("complete before consumption error = %v", err)
 	}
-	if _, err := o.Consume("part", 0, "actor", now); !errors.Is(err, ErrInvalidQuantity) {
+	if _, err := o.Consume("part", 0, "user-1", now); !errors.Is(err, ErrInvalidQuantity) {
 		t.Fatalf("zero consumption error = %v", err)
 	}
-	_, _ = o.Consume("part", 1, "actor", now)
-	_, _ = o.DecideQuote(true, "actor", now)
-	if _, err := o.DecideQuote(false, "actor", now); !errors.Is(err, ErrInvalidTransition) && !errors.Is(err, ErrQuoteUnavailable) {
+	_, _ = o.Consume("part", 1, "user-1", now)
+	_, _ = o.DecideQuote(true, "client-1", now)
+	if _, err := o.DecideQuote(false, "client-1", now); !errors.Is(err, ErrInvalidTransition) && !errors.Is(err, ErrQuoteUnavailable) {
 		t.Fatalf("repeated decision error = %v", err)
 	}
-	o.RestoreTransition(Completed, "actor", "restored", now)
-	if o.Status != Completed || o.UpdatedBy != "actor" || o.UpdatedAt != now {
+	o.RestoreTransition(Completed, "user-1", "restored", now)
+	if o.Status != Completed || o.UpdatedBy != "user-1" || o.UpdatedAt != now {
 		t.Fatalf("restore transition did not update order: %#v", o)
 	}
 }
