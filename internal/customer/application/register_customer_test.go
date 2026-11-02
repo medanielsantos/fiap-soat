@@ -89,3 +89,27 @@ func TestRegisterCustomer(t *testing.T) {
 		}
 	})
 }
+
+func TestRegisterCustomerErrors(t *testing.T) {
+	command := RegisterCustomerCommand{Document: "529.982.247-25", Name: "Ana Silva", Email: "ana@example.com", Phone: "123"}
+
+	t.Run("test_it_should_wrap_id_generator_error", func(t *testing.T) {
+		wantErr := errors.New("id unavailable")
+		_, err := NewRegisterCustomer(&stubCustomerRepository{}, stubIDGenerator{err: wantErr}).Execute(context.Background(), command)
+		if !errors.Is(err, wantErr) {
+			t.Errorf("Execute() error = %v, want wrapped %v", err, wantErr)
+		}
+	})
+
+	t.Run("test_it_should_not_save_when_customer_is_invalid", func(t *testing.T) {
+		repository := &stubCustomerRepository{}
+		invalid := command
+		invalid.Name = "  "
+		if _, err := NewRegisterCustomer(repository, stubIDGenerator{id: "c-1"}).Execute(context.Background(), invalid); !errors.Is(err, domain.ErrInvalidName) {
+			t.Errorf("Execute() error = %v, want %v", err, domain.ErrInvalidName)
+		}
+		if repository.saved.ID() != "" {
+			t.Error("repository.Save() was called for an invalid customer")
+		}
+	})
+}

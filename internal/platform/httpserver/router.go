@@ -39,6 +39,7 @@ func (router *Router) Register() {
 
 	v1 := router.engine.Group("/api/v1")
 	router.identityHandler.RegisterRoutes(v1)
+	router.customerHandler.RegisterClientRoutes(v1)
 	admin := v1.Group("")
 	admin.Use(router.identityHandler.RequireAuth())
 	router.customerHandler.RegisterRoutes(admin.Group("/customers"))

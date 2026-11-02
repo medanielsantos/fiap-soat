@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"log"
 	"os"
 
@@ -14,18 +17,24 @@ import (
 )
 
 func main() {
-	if len(os.Args) > 2 || (len(os.Args) == 2 && os.Args[1] != "up") {
-		log.Fatal("usage: go run ./cmd/migrate [up]")
+	if err := run(context.Background(), os.Args[1:], os.Stdout); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(ctx context.Context, args []string, stdout io.Writer) error {
+	if len(args) > 1 || (len(args) == 1 && args[0] != "up") {
+		return errors.New("usage: go run ./cmd/migrate [up]")
 	}
 
 	cfg := config.Load()
 	if cfg.DatabaseURL == "" {
-		log.Fatal("database configuration is required; set DB_NAME and DB_USER in .env")
+		return errors.New("database configuration is required; set DB_NAME and DB_USER in .env")
 	}
 
 	db, err := sql.Open("pgx", cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("open database: %v", err)
+		return fmt.Errorf("open database: %w", err)
 	}
 	defer func() {
 		if err := db.Close(); err != nil {
@@ -33,23 +42,27 @@ func main() {
 		}
 	}()
 
-	ctx := context.Background()
 	if err := db.PingContext(ctx); err != nil {
-		log.Fatalf("connect to database: %v", err)
+		return fmt.Errorf("connect to database: %w", err)
 	}
-	provider, err := goose.NewProvider(goose.DialectPostgres, db, migrations.Files)
+	return applyMigrations(ctx, db, migrations.Files, stdout)
+}
+
+func applyMigrations(ctx context.Context, db *sql.DB, files fs.FS, stdout io.Writer) error {
+	provider, err := goose.NewProvider(goose.DialectPostgres, db, files)
 	if err != nil {
-		log.Fatalf("initialize migrations: %v", err)
+		return fmt.Errorf("initialize migrations: %w", err)
 	}
 	results, err := provider.Up(ctx)
 	if err != nil {
-		log.Fatalf("apply migrations: %v", err)
+		return fmt.Errorf("apply migrations: %w", err)
 	}
 	if len(results) == 0 {
-		fmt.Println("Database is already up to date.")
-		return
+		_, _ = fmt.Fprintln(stdout, "Database is already up to date.")
+		return nil
 	}
 	for _, result := range results {
-		fmt.Println(result)
+		_, _ = fmt.Fprintln(stdout, result)
 	}
+	return nil
 }

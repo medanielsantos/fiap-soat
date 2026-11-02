@@ -115,6 +115,16 @@ func (r *Repository) List(ctx context.Context, status string, p pagination.Param
 	if status != "" {
 		db = db.Where("status = ?", status)
 	}
+	return r.list(ctx, db, p)
+}
+func (r *Repository) ListForClient(ctx context.Context, customerID, vehicleID string, p pagination.Params) (pagination.Page[domain.WorkOrder], error) {
+	db := database.Current(ctx, r.db).Model(&orderRecord{}).Where("customer_id = ?", customerID)
+	if vehicleID != "" {
+		db = db.Where("vehicle_id = ?", vehicleID)
+	}
+	return r.list(ctx, db, p)
+}
+func (r *Repository) list(ctx context.Context, db *gorm.DB, p pagination.Params) (pagination.Page[domain.WorkOrder], error) {
 	var total int64
 	if err := db.Count(&total).Error; err != nil {
 		return pagination.Page[domain.WorkOrder]{}, err

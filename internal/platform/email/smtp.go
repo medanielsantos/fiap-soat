@@ -3,6 +3,7 @@ package email
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"mime"
 	"net"
@@ -13,7 +14,10 @@ import (
 	"github.com/medanielsantos/fiap-soat/internal/platform/config"
 )
 
-type SMTPMailer struct{ host, port, username, password, from string }
+type SMTPMailer struct {
+	host, port, username, password, from string
+	rootCAs                              *x509.CertPool
+}
 
 func NewSMTPMailer(cfg config.Config) *SMTPMailer {
 	return &SMTPMailer{host: cfg.SMTPHost, port: cfg.SMTPPort, username: cfg.SMTPUser, password: cfg.SMTPPassword, from: cfg.SMTPFrom}
@@ -43,7 +47,7 @@ func (m *SMTPMailer) Send(ctx context.Context, to, subject, body string) error {
 	}
 	defer func() { _ = client.Close() }()
 	if ok, _ := client.Extension("STARTTLS"); ok {
-		if err = client.StartTLS(&tls.Config{ServerName: m.host, MinVersion: tls.VersionTLS12}); err != nil {
+		if err = client.StartTLS(&tls.Config{ServerName: m.host, MinVersion: tls.VersionTLS12, RootCAs: m.rootCAs}); err != nil {
 			return err
 		}
 	} else {

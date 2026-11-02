@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
+	"os"
 
 	identitypostgres "github.com/medanielsantos/fiap-soat/internal/identity/adapters/out/postgres"
 	identityapp "github.com/medanielsantos/fiap-soat/internal/identity/application"
@@ -13,20 +16,26 @@ import (
 )
 
 func main() {
+	if err := run(context.Background(), os.Stdout); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(ctx context.Context, stdout io.Writer) error {
 	cfg := config.Load()
 	if cfg.DatabaseURL == "" {
-		log.Fatal("database configuration is required; set DB_NAME and DB_USER in .env")
+		return errors.New("database configuration is required; set DB_NAME and DB_USER in .env")
 	}
 	if cfg.AdminName == "" || cfg.AdminEmail == "" || cfg.AdminPassword == "" {
-		log.Fatal("ADMIN_NAME, ADMIN_EMAIL and ADMIN_PASSWORD are required")
+		return errors.New("ADMIN_NAME, ADMIN_EMAIL and ADMIN_PASSWORD are required")
 	}
 	db, err := database.OpenPostgres(cfg)
 	if err != nil {
-		log.Fatalf("open database: %v", err)
+		return fmt.Errorf("open database: %w", err)
 	}
 	sqlDB, err := db.DB()
 	if err != nil {
-		log.Fatalf("get database connection: %v", err)
+		return fmt.Errorf("get database connection: %w", err)
 	}
 	defer func() {
 		if err := sqlDB.Close(); err != nil {
@@ -35,17 +44,18 @@ func main() {
 	}()
 
 	store := identitypostgres.NewRepository(db)
-	if err := store.SeedAuthorization(context.Background()); err != nil {
-		log.Fatalf("seed roles and permissions: %v", err)
+	if err := store.SeedAuthorization(ctx); err != nil {
+		return fmt.Errorf("seed roles and permissions: %w", err)
 	}
 	service := identityapp.NewService(store, platformid.UUIDGenerator{}, nil, nil, "")
-	created, err := service.SeedAdmin(context.Background(), cfg.AdminName, cfg.AdminEmail, cfg.AdminPassword)
+	created, err := service.SeedAdmin(ctx, cfg.AdminName, cfg.AdminEmail, cfg.AdminPassword)
 	if err != nil {
-		log.Fatalf("seed administrator: %v", err)
+		return fmt.Errorf("seed administrator: %w", err)
 	}
 	if created {
-		fmt.Println("Initial administrator created.")
-		return
+		_, _ = fmt.Fprintln(stdout, "Initial administrator created.")
+		return nil
 	}
-	fmt.Println("The user table is already initialized; seed skipped without changes.")
+	_, _ = fmt.Fprintln(stdout, "The user table is already initialized; seed skipped without changes.")
+	return nil
 }

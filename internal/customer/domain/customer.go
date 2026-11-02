@@ -21,12 +21,22 @@ const (
 )
 
 type Customer struct {
-	id     string
-	doc    Document
-	name   string
-	email  string
-	phone  string
-	status CustomerStatus
+	id       string
+	doc      Document
+	name     string
+	email    string
+	phone    string
+	status   CustomerStatus
+	password string
+}
+
+func RestoreCustomerWithPassword(id string, document Document, name, email, phone string, status CustomerStatus, password string) (Customer, error) {
+	customer, err := RestoreCustomer(id, document, name, email, phone, status)
+	if err != nil {
+		return Customer{}, err
+	}
+	customer.password = password
+	return customer, nil
 }
 
 func NewCustomer(id string, document Document, name, email, phone string) (Customer, error) {
@@ -36,7 +46,7 @@ func NewCustomer(id string, document Document, name, email, phone string) (Custo
 func RestoreCustomer(id string, document Document, name, email, phone string, status CustomerStatus) (Customer, error) {
 	id = strings.TrimSpace(id)
 	name = strings.TrimSpace(name)
-	email = strings.TrimSpace(email)
+	email = strings.ToLower(strings.TrimSpace(email))
 	phone = strings.TrimSpace(phone)
 
 	switch {
@@ -75,6 +85,7 @@ func (c Customer) Name() string           { return c.name }
 func (c Customer) Email() string          { return c.email }
 func (c Customer) Phone() string          { return c.phone }
 func (c Customer) Status() CustomerStatus { return c.status }
+func (c Customer) Password() string       { return c.password }
 func (c Customer) IsActive() bool         { return c.status == CustomerStatusActive }
 
 func (c *Customer) Deactivate() {

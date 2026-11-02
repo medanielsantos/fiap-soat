@@ -29,6 +29,9 @@ type Store interface {
 	List(context.Context, string, pagination.Params) (pagination.Page[domain.WorkOrder], error)
 	Save(context.Context, domain.WorkOrder, domain.HistoryEntry) error
 }
+type ClientOrderStore interface {
+	ListForClient(context.Context, string, string, pagination.Params) (pagination.Page[domain.WorkOrder], error)
+}
 type Ownership interface {
 	Validate(context.Context, string, string) error
 }
@@ -87,6 +90,20 @@ func (s *Service) Create(ctx context.Context, customerID, vehicleID, userID stri
 }
 func (s *Service) Get(ctx context.Context, id string) (domain.WorkOrder, error) {
 	return s.store.Find(ctx, id)
+}
+func (s *Service) GetForClient(ctx context.Context, id, customerID, vehicleID string) (domain.WorkOrder, error) {
+	order, err := s.store.Find(ctx, id)
+	if err != nil || order.CustomerID != customerID || (vehicleID != "" && order.VehicleID != vehicleID) {
+		return domain.WorkOrder{}, ErrNotFound
+	}
+	return order, nil
+}
+func (s *Service) ListForClient(ctx context.Context, customerID, vehicleID string, p pagination.Params) (pagination.Page[domain.WorkOrder], error) {
+	store, ok := s.store.(ClientOrderStore)
+	if !ok {
+		return pagination.Page[domain.WorkOrder]{}, errors.New("client order listing is unavailable")
+	}
+	return store.ListForClient(ctx, customerID, vehicleID, p)
 }
 func (s *Service) List(ctx context.Context, status string, p pagination.Params) (pagination.Page[domain.WorkOrder], error) {
 	return s.store.List(ctx, status, p)

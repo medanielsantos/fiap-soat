@@ -29,14 +29,15 @@ func (h *Handler) RegisterRoutes(api *echo.Group) {
 	auth.POST("/login", h.login)
 	auth.POST("/password/forgot", h.forgot)
 	auth.POST("/password/reset", h.reset)
-	api.POST("/admin-users", h.createAdmin, h.RequireAuth(), h.RequirePermission(application.PermissionUsersCreate))
-	api.GET("/admin-users", h.listUsers, h.RequireAuth(), h.RequirePermission(application.PermissionUsersRead))
-	api.GET("/admin-users/:id", h.getUser, h.RequireAuth(), h.RequirePermission(application.PermissionUsersRead))
-	api.PATCH("/admin-users/:id/status", h.updateStatus, h.RequireAuth(), h.RequirePermission(application.PermissionUsersStatusUpdate))
-	api.PUT("/admin-users/:id/roles", h.updateRoles, h.RequireAuth(), h.RequirePermission(application.PermissionUsersRoleAssign))
-	api.POST("/admin-users/:id/permissions/:permission", h.grantPermission, h.RequireAuth(), h.RequirePermission(application.PermissionUsersPermissionAssign))
-	api.DELETE("/admin-users/:id/permissions/:permission", h.revokePermission, h.RequireAuth(), h.RequirePermission(application.PermissionUsersPermissionAssign))
-	api.DELETE("/admin-users/:id", h.deleteUser, h.RequireAuth(), h.RequirePermission(application.PermissionUsersDelete))
+	admin := api.Group("/admin")
+	admin.POST("/users", h.createAdmin, h.RequireAuth(), h.RequirePermission(application.PermissionUsersCreate))
+	admin.GET("/users", h.listUsers, h.RequireAuth(), h.RequirePermission(application.PermissionUsersRead))
+	admin.GET("/users/:id", h.getUser, h.RequireAuth(), h.RequirePermission(application.PermissionUsersRead))
+	admin.PATCH("/users/:id/status", h.updateStatus, h.RequireAuth(), h.RequirePermission(application.PermissionUsersStatusUpdate))
+	admin.PUT("/users/:id/roles", h.updateRoles, h.RequireAuth(), h.RequirePermission(application.PermissionUsersRoleAssign))
+	admin.POST("/users/:id/permissions/:permission", h.grantPermission, h.RequireAuth(), h.RequirePermission(application.PermissionUsersPermissionAssign))
+	admin.DELETE("/users/:id/permissions/:permission", h.revokePermission, h.RequireAuth(), h.RequirePermission(application.PermissionUsersPermissionAssign))
+	admin.DELETE("/users/:id", h.deleteUser, h.RequireAuth(), h.RequirePermission(application.PermissionUsersDelete))
 }
 
 type credentials struct {

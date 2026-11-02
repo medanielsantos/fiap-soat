@@ -1,37 +1,38 @@
 # ADR-011 — Uso do Redis
 
-- **Estado:** Proposto — validar escopo de uso
-- **Data:** 2026-10-25
+- **Estado:** Definido
+- **Data:** 2026-11-01
 
 ## Contexto
 
-O sistema precisa proteger endpoints administrativos e de acompanhamento do cliente contra abuso. A credencial de acompanhamento proposta em ADR-006 deve ter escopo limitado e expiração. PostgreSQL deve continuar armazenando os dados de negócio de forma durável.
+O acesso do cliente precisa limitar tentativas de autenticação e abuso nos endpoints de acompanhamento. As contagens devem ser compartilhadas entre instâncias da API. PostgreSQL continua armazenando os dados de negócio e os tokens de redefinição de senha.
 
 ## Decisão proposta
 
-Usar **Redis apenas para dados efêmeros**, inicialmente:
+Usar **Redis somente para contadores efêmeros de rate limit**:
 
-1. Aplicar rate limiting em login e endpoints de acompanhamento/aprovação.
-2. Armazenar credenciais temporárias de acompanhamento com TTL, indexadas por hash do token e vinculadas a uma OS/escopo. Nunca persistir o token em claro.
+1. Limitar login por e-mail, acesso por placa e solicitações/redefinições de senha do cliente a cinco tentativas por IP por minuto.
+2. Limitar endpoints autenticados de acompanhamento e decisão a 60 requisições por minuto por cliente e IP.
+3. Incrementar contadores atomicamente com `INCR` e `PEXPIRE`; guardar no Redis somente a chave derivada por SHA-256, nunca o IP ou identificador original.
 
-PostgreSQL permanece a fonte de verdade de clientes, veículos, catálogo, estoque, OS, orçamento e histórico. Redis não é usado como cache de catálogo nem como armazenamento exclusivo de informação necessária à consistência financeira/estoque.
+PostgreSQL permanece a fonte de verdade de clientes, veículos, catálogo, estoque, OS, orçamento e histórico. JWTs de cliente e administração são assinados e validados pela aplicação. Tokens de redefinição permanecem armazenados como hash no PostgreSQL. Redis não armazena sessões ou credenciais e não é usado como cache de catálogo.
 
 ## Alternativas consideradas
 
-- Somente PostgreSQL para credenciais temporárias e rate limits: possível, mas exige limpeza/contadores próprios e aumenta escrita operacional.
+- Somente PostgreSQL para rate limits: possível, mas exige contadores e limpeza próprios e aumenta escrita operacional.
 - Redis como cache geral: não proposto no MVP por trazer invalidação e risco de dado desatualizado sem necessidade comprovada.
-- Não adicionar Redis: reduz componentes, porém deixa os controles temporários propostos sem infraestrutura dedicada.
+- Não adicionar Redis: reduz componentes, mas deixa os limites de requisições locais a cada instância e não compartilhados entre réplicas.
 
 ## Consequências
 
-- Se adotado, Redis será serviço local no Compose e adaptador isolado sob `internal/platform/redis`.
-- A indisponibilidade do Redis impede acompanhamento autenticado; operações administrativas baseadas em JWT e PostgreSQL podem continuar, conforme política de rate limit definida.
-- Perda/reinício do Redis invalida credenciais temporárias, que deverão poder ser reemitidas.
-- Usar TTL, limite de memória, autenticação/configuração segura e não registrar valores de tokens.
-- Testes de integração devem cobrir expiração, revogação, rate limit e comportamento sem Redis.
+- Redis é serviço no Compose local e adaptador isolado sob `internal/platform/redis`.
+- A indisponibilidade ou falta de memória no Redis retorna `503` nos endpoints de cliente sujeitos ao rate limit (fail closed). Operações administrativas e persistência em PostgreSQL continuam independentes do Redis.
+- O Redis local não persiste contadores; reiniciar o serviço inicia novas janelas de rate limit.
+- O serviço usa senha, limite de 64 MB, política `noeviction` e expiração dos contadores. Não registrar chaves ou tokens.
+- Contadores usam janela fixa de um minuto e script Lua para que incremento e expiração sejam atômicos.
 
-## Pontos a validar
+## Pontos para produção
 
-- Confirmar que credencial temporária de acompanhamento será armazenada no Redis.
-- Confirmar limites e janela do rate limiting.
-- Decidir se Redis será requisito de execução local do MVP ou se entra após os fluxos principais.
+- Configurar proxy confiável para que o IP usado no rate limit não aceite cabeçalhos encaminhados arbitrários.
+- Avaliar alta disponibilidade, TLS, rotação de senha e capacidade do Redis para o ambiente de produção.
+- Credenciais revogáveis ou de uso único, caso sejam introduzidas, exigem uma decisão própria; elas não são armazenadas no Redis nesta versão.

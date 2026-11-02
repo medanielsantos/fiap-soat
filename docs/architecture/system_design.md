@@ -2,7 +2,7 @@
 
 ## Estilo
 
-Monólito modular em Go usando DDD e Clean Architecture. Echo atende HTTP; PostgreSQL é acessado por adaptadores; Redis está proposto para dados efêmeros conforme ADR-011. O domínio não conhece framework, protocolo HTTP nem banco.
+Monólito modular em Go usando DDD e Clean Architecture. Echo atende HTTP; PostgreSQL é acessado por adaptadores; Redis é usado pelo adaptador de rate limit para contadores efêmeros conforme ADR-011. O domínio não conhece framework, protocolo HTTP nem banco.
 
 ## Direção das dependências
 

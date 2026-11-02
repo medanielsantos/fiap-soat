@@ -13,6 +13,7 @@ A operação da oficina depende de anotações e planilhas para clientes, veícu
 - Registrar aprovação ou rejeição do orçamento.
 - Controlar status e histórico da OS, da recepção à entrega.
 - Oferecer acompanhamento autorizado ao cliente.
+- Oferecer conta do cliente por e-mail e senha, com acesso a todos os veículos cadastrados, e acesso limitado por placa + cinco primeiros dígitos do CPF/CNPJ normalizado.
 - Proteger administração por JWT e disponibilizar métricas de duração dos serviços.
 
 ## Fora do escopo inicial

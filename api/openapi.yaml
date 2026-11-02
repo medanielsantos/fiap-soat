@@ -1,0 +1,592 @@
+openapi: 3.1.0
+info:
+  title: Sistema de Gestão de Oficina API
+  version: 1.0.0
+  description: API REST para administração da oficina e acompanhamento pelo cliente.
+servers:
+  - url: http://localhost:8080/api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Admin Auth
+    description: Login e recuperação de acesso administrativo. Essas operações são públicas para permitir emissão ou recuperação de sessão.
+  - name: Admin Users
+    description: Gestão de usuários administrativos, protegida por RBAC.
+  - name: Customers
+    description: Cadastro administrativo de clientes.
+  - name: Client Access
+    description: Login público do cliente e recursos protegidos pelo token de cliente.
+  - name: Vehicles
+    description: Cadastro e consulta administrativa de veículos.
+  - name: Catalog
+    description: Serviços, peças e estoque.
+  - name: Work Orders
+    description: Operações administrativas das ordens de serviço.
+paths:
+  /health:
+    servers:
+      - url: http://localhost:8080
+    get:
+      security: []
+      summary: Verifica a disponibilidade da API
+      tags: ["Admin Auth"]
+      responses:
+        '200': { description: API disponível }
+  /auth/login:
+    post:
+      security: []
+      summary: Autentica usuário administrativo
+      tags: ["Admin Auth"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        '200': { description: Sessão autenticada }
+        '401': { $ref: '#/components/responses/Problem' }
+  /auth/password/forgot:
+    post:
+      security: []
+      summary: Solicita redefinição de senha administrativa
+      tags: ["Admin Auth"]
+      responses:
+        '202': { description: Solicitação aceita }
+  /auth/password/reset:
+    post:
+      security: []
+      summary: Redefine senha administrativa com token temporário
+      tags: ["Admin Auth"]
+      responses:
+        '204': { description: Senha redefinida }
+  /admin/users:
+    get:
+      summary: Lista usuários administrativos
+      tags: ["Admin Users"]
+      responses:
+        '200': { description: Lista paginada }
+    post:
+      summary: Cria usuário administrativo
+      tags: ["Admin Users"]
+      responses:
+        '201': { description: Usuário criado }
+  /admin/users/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      summary: Consulta usuário administrativo
+      tags: ["Admin Users"]
+      responses:
+        '200': { description: Usuário encontrado }
+    delete:
+      summary: Exclui usuário administrativamente
+      tags: ["Admin Users"]
+      responses:
+        '204': { description: Usuário excluído }
+  /admin/users/{id}/status:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    patch:
+      summary: Altera status de usuário
+      tags: ["Admin Users"]
+      responses:
+        '200': { description: Status atualizado }
+  /admin/users/{id}/roles:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    put:
+      summary: Substitui perfis de usuário
+      tags: ["Admin Users"]
+      responses:
+        '200': { description: Perfis atualizados }
+  /admin/users/{id}/permissions/{permission}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+      - { name: permission, in: path, required: true, schema: { type: string } }
+    post:
+      summary: Concede permissão direta
+      tags: ["Admin Users"]
+      responses:
+        '204': { description: Permissão concedida }
+    delete:
+      summary: Revoga permissão direta
+      tags: ["Admin Users"]
+      responses:
+        '204': { description: Permissão revogada }
+  /customers:
+    get:
+      summary: Lista clientes
+      tags: ["Customers"]
+      responses:
+        '200': { description: Lista paginada }
+        '204': { description: Nenhum cliente encontrado }
+    post:
+      summary: Cadastra cliente
+      tags: ["Customers"]
+      responses:
+        '201': { description: Cliente cadastrado }
+  /customers/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      summary: Consulta cliente
+      tags: ["Customers"]
+      responses:
+        '200': { description: Cliente encontrado }
+    put:
+      summary: Atualiza cliente
+      tags: ["Customers"]
+      responses:
+        '200': { description: Cliente atualizado }
+    delete:
+      summary: Desativa cliente
+      tags: ["Customers"]
+      responses:
+        '204': { description: Cliente desativado }
+  /client/auth/login:
+    post:
+      security: []
+      summary: Autentica cliente por e-mail e senha
+      tags: ["Client Access"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        '200': { description: Token de cliente com acesso a todos os veículos do cadastro }
+        '401': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /client/auth/password/forgot:
+    post:
+      security: []
+      summary: Solicita redefinição da senha do cliente
+      tags: ["Client Access"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '202': { description: Solicitação aceita sem revelar se a conta existe }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /client/auth/password/reset:
+    post:
+      security: []
+      summary: Redefine a senha do cliente com token temporário
+      tags: ["Client Access"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string }
+                password: { type: string, format: password, minLength: 12, maxLength: 72 }
+      responses:
+        '204': { description: Senha redefinida }
+        '400': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /client/auth/plate:
+    post:
+      security: []
+      summary: Autentica acesso limitado por placa e documento
+      tags: ["Client Access"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plate, document_prefix]
+              properties:
+                plate: { type: string }
+                document_prefix: { type: string, minLength: 5, maxLength: 5, description: Cinco primeiros dígitos do CPF/CNPJ }
+      responses:
+        '200': { description: Token limitado ao veículo identificado }
+        '401': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /client/vehicles:
+    get:
+      security: [{ clientBearerAuth: [] }]
+      summary: Lista veículos permitidos pela sessão do cliente
+      tags: ["Client Access"]
+      responses:
+        '200':
+          description: Veículos acessíveis pela sessão
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginatedClientVehicles' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /client/work-orders:
+    get:
+      security: [{ clientBearerAuth: [] }]
+      summary: Lista ordens de serviço dentro do escopo do cliente
+      tags: ["Client Access"]
+      responses:
+        '200':
+          description: Lista paginada dentro do escopo da sessão
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginatedClientWorkOrders' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /client/work-orders/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      security: [{ clientBearerAuth: [] }]
+      summary: Consulta OS do cliente
+      tags: ["Client Access"]
+      responses:
+        '200':
+          description: Ordem e orçamento sem identificadores internos de item ou catálogo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClientWorkOrder' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /client/work-orders/{id}/quotes/approve:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      security: [{ clientBearerAuth: [] }]
+      summary: Aprova orçamento da OS autenticada
+      tags: ["Client Access"]
+      responses:
+        '200':
+          description: Orçamento aprovado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClientWorkOrder' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /client/work-orders/{id}/quotes/reject:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      security: [{ clientBearerAuth: [] }]
+      summary: Rejeita orçamento da OS autenticada
+      tags: ["Client Access"]
+      responses:
+        '200':
+          description: Orçamento rejeitado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClientWorkOrder' }
+        '429': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /vehicles:
+    get:
+      summary: Lista veículos
+      tags: ["Vehicles"]
+      responses:
+        '200': { description: Lista paginada }
+        '204': { description: Nenhum veículo encontrado }
+    post:
+      summary: Cadastra veículo
+      tags: ["Vehicles"]
+      responses:
+        '201': { description: Veículo cadastrado }
+  /vehicles/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      summary: Consulta veículo
+      tags: ["Vehicles"]
+      responses:
+        '200': { description: Veículo encontrado }
+    put:
+      summary: Atualiza veículo
+      tags: ["Vehicles"]
+      responses:
+        '200': { description: Veículo atualizado }
+    delete:
+      summary: Desativa veículo
+      tags: ["Vehicles"]
+      responses:
+        '204': { description: Veículo desativado }
+  /services:
+    get:
+      summary: Lista serviços
+      tags: ["Catalog"]
+      responses:
+        '200': { description: Lista paginada }
+    post:
+      summary: Cadastra serviço
+      tags: ["Catalog"]
+      responses:
+        '201': { description: Serviço cadastrado }
+  /services/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      summary: Consulta serviço
+      tags: ["Catalog"]
+      responses:
+        '200': { description: Serviço encontrado }
+    put:
+      summary: Atualiza serviço
+      tags: ["Catalog"]
+      responses:
+        '200': { description: Serviço atualizado }
+    delete:
+      summary: Exclui serviço
+      tags: ["Catalog"]
+      responses:
+        '204': { description: Serviço excluído }
+  /parts:
+    get:
+      summary: Lista peças e saldo de estoque
+      tags: ["Catalog"]
+      responses:
+        '200': { description: Lista paginada }
+    post:
+      summary: Cadastra peça
+      tags: ["Catalog"]
+      responses:
+        '201': { description: Peça cadastrada }
+  /parts/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      summary: Consulta peça e saldo
+      tags: ["Catalog"]
+      responses:
+        '200': { description: Peça encontrada }
+    put:
+      summary: Atualiza peça
+      tags: ["Catalog"]
+      responses:
+        '200': { description: Peça atualizada }
+    delete:
+      summary: Exclui peça sem saldo ou reservas
+      tags: ["Catalog"]
+      responses:
+        '204': { description: Peça excluída }
+  /parts/{id}/stock-movements:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      summary: Lista movimentações de estoque
+      tags: ["Catalog"]
+      responses:
+        '200': { description: Histórico paginado }
+    post:
+      summary: Registra entrada ou saída
+      tags: ["Catalog"]
+      responses:
+        '200': { description: Saldo atualizado }
+  /work-orders:
+    get:
+      summary: Lista ordens de serviço
+      tags: ["Work Orders"]
+      responses:
+        '200': { description: Lista paginada }
+    post:
+      summary: Abre ordem de serviço
+      tags: ["Work Orders"]
+      responses:
+        '201': { description: Ordem criada }
+  /work-orders/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      summary: Consulta ordem, itens, orçamentos e histórico
+      tags: ["Work Orders"]
+      responses:
+        '200': { description: Ordem encontrada }
+  /work-orders/{id}/diagnosis:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      summary: Registra diagnóstico
+      tags: ["Work Orders"]
+      responses:
+        '200': { description: Diagnóstico registrado }
+  /work-orders/{id}/items:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      summary: Inclui item no orçamento
+      tags: ["Work Orders"]
+      responses:
+        '201': { description: Item incluído }
+  /work-orders/{id}/items/{item_id}:
+    parameters:
+      - { $ref: '#/components/parameters/ID' }
+      - { $ref: '#/components/parameters/ItemID' }
+    delete:
+      summary: Remove item antes do envio do orçamento
+      tags: ["Work Orders"]
+      responses:
+        '200': { description: Item removido }
+  /work-orders/{id}/quotes:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      summary: Cria versão imutável do orçamento
+      tags: ["Work Orders"]
+      responses:
+        '200': { description: Orçamento criado }
+  /work-orders/{id}/quotes/approve:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      summary: Aprova orçamento e reserva estoque
+      tags: ["Work Orders"]
+      responses:
+        '200': { description: Orçamento aprovado }
+        '409': { $ref: '#/components/responses/Problem' }
+  /work-orders/{id}/quotes/reject:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      summary: Rejeita orçamento
+      tags: ["Work Orders"]
+      responses:
+        '200': { description: Orçamento rejeitado }
+  /work-orders/{id}/consumptions:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      summary: Registra consumo de peça reservada
+      tags: ["Work Orders"]
+      responses:
+        '200': { description: Consumo registrado }
+  /work-orders/{id}/complete:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      summary: Finaliza serviço após consumo
+      tags: ["Work Orders"]
+      responses:
+        '200': { description: Serviço finalizado }
+  /work-orders/{id}/deliver:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      summary: Registra entrega do veículo
+      tags: ["Work Orders"]
+      responses:
+        '200': { description: Veículo entregue }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    clientBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    ItemID:
+      name: item_id
+      in: path
+      required: true
+      schema: { type: string }
+  responses:
+    Problem:
+      description: Erro no formato RFC 9457
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            properties:
+              type: { type: string }
+              title: { type: string }
+              status: { type: integer }
+              detail: { type: string }
+              instance: { type: string }
+  schemas:
+    ClientVehicle:
+      type: object
+      required: [id, plate, brand, model, year]
+      properties:
+        id: { type: string }
+        plate: { type: string }
+        brand: { type: string }
+        model: { type: string }
+        year: { type: integer }
+    ClientWorkOrderItem:
+      type: object
+      required: [type, code, description, unit, quantity, unit_price_in_cents, consumed_quantity]
+      properties:
+        type: { type: string, enum: [service, part] }
+        code: { type: string }
+        description: { type: string }
+        unit: { type: string }
+        quantity: { type: integer, format: int64 }
+        unit_price_in_cents: { type: integer, format: int64 }
+        consumed_quantity: { type: integer, format: int64 }
+        estimated_duration_minutes: { type: integer }
+    ClientQuoteItem:
+      type: object
+      required: [type, code, description, unit, quantity, unit_price_in_cents, subtotal_in_cents]
+      properties:
+        type: { type: string, enum: [service, part] }
+        code: { type: string }
+        description: { type: string }
+        unit: { type: string }
+        quantity: { type: integer, format: int64 }
+        unit_price_in_cents: { type: integer, format: int64 }
+        subtotal_in_cents: { type: integer, format: int64 }
+        estimated_duration_minutes: { type: integer }
+    ClientQuote:
+      type: object
+      required: [version, total_in_cents, decision, items]
+      properties:
+        version: { type: integer }
+        total_in_cents: { type: integer, format: int64 }
+        decision: { type: string, enum: [pending, approved, rejected] }
+        decided_at: { type: string, format: date-time }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ClientQuoteItem' }
+    ClientWorkOrder:
+      type: object
+      required: [id, status, diagnosis, items, quotes, created_at, updated_at]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [received, diagnosis, awaiting_approval, in_progress, completed, delivered] }
+        diagnosis: { type: string }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ClientWorkOrderItem' }
+        quotes:
+          type: array
+          items: { $ref: '#/components/schemas/ClientQuote' }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Pagination:
+      type: object
+      properties:
+        page: { type: integer }
+        per_page: { type: integer }
+        total_items: { type: integer, format: int64 }
+        total_pages: { type: integer }
+    PaginatedClientVehicles:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ClientVehicle' }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+        links: { type: object, additionalProperties: { type: string } }
+    PaginatedClientWorkOrders:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ClientWorkOrder' }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+        links: { type: object, additionalProperties: { type: string } }

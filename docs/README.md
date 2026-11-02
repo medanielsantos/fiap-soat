@@ -9,6 +9,8 @@ Esta documentação foi escrita para este projeto independente. Ela registra dec
 | Produto e escopo | [product/scope.md](product/scope.md) |
 | Regras do domínio | [domain/domain_model.md](domain/domain_model.md) |
 | Ciclo da Ordem de Serviço | [domain/work_order_lifecycle.md](domain/work_order_lifecycle.md) |
+| Event Storming | [ddd/event-storming.md](ddd/event-storming.md) |
+| Linguagem Ubíqua | [ddd/linguagem-ubiqua.md](ddd/linguagem-ubiqua.md) |
 | Arquitetura e limites | [architecture/system_design.md](architecture/system_design.md) |
 | Estrutura Go | [architecture/go_structure.md](architecture/go_structure.md) |
 | PostgreSQL e persistência | [architecture/persistence.md](architecture/persistence.md) |
