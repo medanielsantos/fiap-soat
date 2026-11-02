@@ -13,8 +13,6 @@ import (
 
 var baseTime = time.Date(2026, 10, 29, 10, 0, 0, 0, time.UTC)
 
-// openRepository returns a repository over an isolated schema seeded with
-// customers customer-1/customer-2 and vehicles vehicle-1, vehicle-2 (customer-1) and vehicle-3 (customer-2).
 func openRepository(t *testing.T) (*Repository, *gorm.DB) {
 	t.Helper()
 	db := testdb.Open(t)
@@ -40,7 +38,6 @@ type orderSpec struct {
 	createdAt                 time.Time
 }
 
-// createOrder persists a received order and returns it with its creation event.
 func createOrder(t *testing.T, repo *Repository, spec orderSpec) domain.WorkOrder {
 	t.Helper()
 	if spec.createdAt.IsZero() {
@@ -67,7 +64,6 @@ func newItem(t *testing.T, id string, kind domain.ItemType, catalogID string, qt
 	return item
 }
 
-// apply runs a domain transition and persists it through Save with a unique event ID.
 func apply(t *testing.T, repo *Repository, o *domain.WorkOrder, step string, fn func(*domain.WorkOrder) (domain.HistoryEntry, error)) {
 	t.Helper()
 	event, err := fn(o)

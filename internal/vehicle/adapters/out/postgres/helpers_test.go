@@ -9,8 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// openRepository returns a repository over an isolated, migrated schema seeded with
-// the active customers customer-1 and customer-2.
 func openRepository(t *testing.T) (*VehicleRepository, *gorm.DB) {
 	t.Helper()
 	db := testdb.Open(t)

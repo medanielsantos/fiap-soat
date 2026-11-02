@@ -65,7 +65,6 @@ type routeTestWorkOrderDependencies struct {
 	workorderapp.Inventory
 }
 
-// newTestRouter wires every module handler with inert fakes onto engine.
 func newTestRouter(t *testing.T, engine *echo.Echo) *Router {
 	t.Helper()
 	service := application.NewCustomerService(routeTestCustomerStore{}, routeTestIDGenerator{})

@@ -32,7 +32,6 @@ type clientEnv struct {
 	mailer     *fakeMailer
 }
 
-// newClientEnv wires admin and client routes with an active customer c-1 and an inactive c-2.
 func newClientEnv(t *testing.T) *clientEnv {
 	t.Helper()
 	env := &clientEnv{
@@ -116,7 +115,6 @@ func assertProblem(t *testing.T, response *httptest.ResponseRecorder, status int
 		t.Errorf("Content-Type = %q, want application/problem+json", got)
 	}
 	var body problem
-	// Decode only the first JSON value: assertHandlerStopped checks there are no trailing writes.
 	if err := json.NewDecoder(bytes.NewReader(response.Body.Bytes())).Decode(&body); err != nil {
 		t.Fatalf("decode problem: %v", err)
 	}
@@ -134,8 +132,6 @@ func decodeJSON[T any](t *testing.T, response *httptest.ResponseRecorder) T {
 	return out
 }
 
-// assertHandlerStopped fails when a second JSON value follows the problem body, i.e. the handler
-// kept running after the rate limiter rejected the request.
 func assertHandlerStopped(t *testing.T, response *httptest.ResponseRecorder) {
 	t.Helper()
 	decoder := json.NewDecoder(bytes.NewReader(response.Body.Bytes()))

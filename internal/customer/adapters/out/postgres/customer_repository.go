@@ -45,7 +45,6 @@ func (repository *CustomerRepository) FindByEmail(ctx context.Context, email str
 func (repository *CustomerRepository) FindByPlateAndDocumentPrefix(ctx context.Context, plate, prefix string) (domain.Customer, string, error) {
 	var record customerRecord
 	var vehicleID string
-	// Record must be an exported field: gorm ignores the fields of an unexported embedded struct.
 	var result struct {
 		Record    customerRecord `gorm:"embedded"`
 		VehicleID string         `gorm:"column:vehicle_id"`

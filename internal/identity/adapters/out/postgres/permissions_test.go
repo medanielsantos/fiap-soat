@@ -12,7 +12,7 @@ func TestGrantAndRevokeDirectPermission(t *testing.T) {
 	repository := newTestRepository(t)
 	ctx := context.Background()
 	mustCreate(t, repository, testUser("attendant", application.UserRoleAttendant))
-	for range 2 { // granting twice is idempotent
+	for range 2 {
 		if err := repository.GrantPermissionToUser(ctx, "attendant", application.PermissionUsersRead); err != nil {
 			t.Fatalf("GrantPermissionToUser(): %v", err)
 		}

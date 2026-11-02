@@ -15,7 +15,6 @@ import (
 
 var adminPermissions = []identityapp.Permission{identityapp.PermissionProductsCreate, identityapp.PermissionProductsDelete, identityapp.PermissionProductsPriceUpdate}
 
-// require mimics the identity middleware: it denies the request unless the permission was granted.
 func require(permission identityapp.Permission) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
@@ -27,7 +26,6 @@ func require(permission identityapp.Permission) echo.MiddlewareFunc {
 	}
 }
 
-// newTestEcho wires the handler behind a fake authentication step granting the given permissions.
 func newTestEcho(store *handlerCatalogStore, permissions ...identityapp.Permission) *echo.Echo {
 	e := echo.New()
 	api := e.Group("/api/v1", func(next echo.HandlerFunc) echo.HandlerFunc {

@@ -9,7 +9,6 @@ import (
 	"github.com/medanielsantos/fiap-soat/internal/servicecatalog/domain"
 )
 
-// handlerCatalogStore is an in-memory application.Store; err, when set, is returned by every call.
 type handlerCatalogStore struct {
 	services  map[string]domain.Service
 	parts     map[string]domain.Part

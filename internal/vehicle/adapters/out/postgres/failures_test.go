@@ -8,8 +8,6 @@ import (
 	"github.com/medanielsantos/fiap-soat/internal/vehicle/application"
 )
 
-// TestVehicleRepositorySurfacesDatabaseErrors breaks the schema and checks that
-// unexpected database errors are returned untranslated instead of masked as domain errors.
 func TestVehicleRepositorySurfacesDatabaseErrors(t *testing.T) {
 	ops := map[string]func(*VehicleRepository, *testing.T) error{
 		"save": func(r *VehicleRepository, t *testing.T) error {
@@ -37,7 +35,7 @@ func TestVehicleRepositorySurfacesDatabaseErrors(t *testing.T) {
 	for breakName, ddl := range schemaBreaks {
 		for opName, op := range ops {
 			if breakName == "renamed_column" && opName != "list" {
-				continue // only the ordered list query depends on created_at by name
+				continue
 			}
 			t.Run(breakName+"_"+opName, func(t *testing.T) {
 				repository, db := openRepository(t)

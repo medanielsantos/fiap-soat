@@ -14,7 +14,6 @@ func TestMainShutsDownGracefullyOnSIGTERM(t *testing.T) {
 		done <- nil
 	}()
 
-	// The server only answers after main registered its signal handler, so SIGTERM is safe to send.
 	waitHealthy(t, baseURL)
 	if err := syscall.Kill(os.Getpid(), syscall.SIGTERM); err != nil {
 		t.Fatal(err)

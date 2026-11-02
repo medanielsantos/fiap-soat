@@ -124,7 +124,6 @@ func (s *testServer) do(method, target, body string) *httptest.ResponseRecorder 
 	return response
 }
 
-// mustDo runs a request and fails the test when the status differs from want.
 func (s *testServer) mustDo(t *testing.T, method, target, body string, want int) domain.WorkOrder {
 	t.Helper()
 	response := s.do(method, target, body)

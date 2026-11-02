@@ -1,4 +1,3 @@
-// Package testdb provides an isolated, migrated PostgreSQL schema for repository tests.
 package testdb
 
 import (
@@ -18,8 +17,6 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// Open returns a gorm connection bound to a fresh schema with all migrations applied.
-// The test is skipped when TEST_DATABASE_URL is not set; the schema is dropped on cleanup.
 func Open(t testing.TB) *gorm.DB {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")

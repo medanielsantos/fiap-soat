@@ -8,7 +8,6 @@ import (
 	"github.com/medanielsantos/fiap-soat/internal/platform/testdb"
 )
 
-// newTestRepository opens an isolated schema and seeds roles and permissions.
 func newTestRepository(t *testing.T) *Repository {
 	t.Helper()
 	repository := NewRepository(testdb.Open(t))

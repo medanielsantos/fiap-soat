@@ -11,14 +11,13 @@ import (
 	"time"
 )
 
-// fakeSMTP is a minimal ESMTP server supporting STARTTLS, AUTH PLAIN and DATA.
 type fakeSMTP struct {
 	host, port string
 	pool       *x509.CertPool
 	tlsConfig  *tls.Config
 	greeting   string
 	noTLS      bool
-	reject     map[string]string // verb (or "DATA-END") -> reply sent instead of success
+	reject     map[string]string
 	mu         sync.Mutex
 	commands   []string
 	message    string

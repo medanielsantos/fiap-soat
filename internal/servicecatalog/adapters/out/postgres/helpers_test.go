@@ -16,7 +16,6 @@ func newTestRepository(t *testing.T) (*Repository, *gorm.DB) {
 	return NewRepository(db), db
 }
 
-// canceledContext makes every query fail, exercising the driver error paths.
 func canceledContext() context.Context {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -59,7 +58,6 @@ func savePart(t *testing.T, repo *Repository, id string, stock int64) domain.Par
 	return p
 }
 
-// seedWorkOrder inserts the customer, vehicle and work order a stock reservation references.
 func seedWorkOrder(t *testing.T, db *gorm.DB, id string) {
 	t.Helper()
 	statements := []string{

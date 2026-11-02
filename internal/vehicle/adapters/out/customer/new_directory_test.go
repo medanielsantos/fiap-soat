@@ -8,7 +8,6 @@ import (
 	customerdomain "github.com/medanielsantos/fiap-soat/internal/customer/domain"
 )
 
-// notFoundStore answers every lookup with ErrCustomerNotFound; other methods are unused.
 type notFoundStore struct{ customerapp.CustomerStore }
 
 func (notFoundStore) FindByID(context.Context, string) (customerdomain.Customer, error) {

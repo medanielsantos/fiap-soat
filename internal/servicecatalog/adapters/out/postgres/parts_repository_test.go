@@ -65,7 +65,6 @@ func TestRepositoryDeletePart(t *testing.T) {
 	if err := repo.DeletePart(ctx, "empty"); !errors.Is(err, application.ErrNotFound) {
 		t.Errorf("DeletePart(deleted) error = %v, want %v", err, application.ErrNotFound)
 	}
-	// soft-deleted SKU may be reused
 	if err := repo.SavePart(ctx, newPart(t, "again", "SKU-empty", 0), nil); err != nil {
 		t.Errorf("SavePart(reused sku) error = %v", err)
 	}

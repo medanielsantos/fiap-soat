@@ -12,7 +12,6 @@ import (
 
 var errBoom = errors.New("boom")
 
-// memoryCatalogStore is an in-memory Store; errs injects a failure per method name.
 type memoryCatalogStore struct {
 	services  map[string]domain.Service
 	parts     map[string]domain.Part
@@ -108,7 +107,6 @@ func (s *memoryCatalogStore) ConsumeReservedStock(_ context.Context, _, _ string
 	return s.errs["ConsumeReservedStock"]
 }
 
-// sequenceIDs yields id-1, id-2, ...; the call numbered failAt returns errBoom.
 type sequenceIDs struct{ calls, failAt int }
 
 func (g *sequenceIDs) NewID(context.Context) (string, error) {

@@ -7,7 +7,6 @@ import (
 
 const testJWTSecret = "0123456789abcdef0123456789abcdef"
 
-// setValidEnvironment points config.Load at the test database with every other dependency inert.
 func setValidEnvironment(t *testing.T) {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")

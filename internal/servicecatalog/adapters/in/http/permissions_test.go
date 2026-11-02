@@ -8,7 +8,6 @@ import (
 	identityapp "github.com/medanielsantos/fiap-soat/internal/identity/application"
 )
 
-// attendant can create but cannot delete nor change prices.
 var attendantPermissions = []identityapp.Permission{identityapp.PermissionProductsCreate}
 
 func TestCatalogPermissions(t *testing.T) {

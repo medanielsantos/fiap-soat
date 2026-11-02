@@ -10,7 +10,6 @@ import (
 
 var errStoreFailure = errors.New("store failure")
 
-// failingStore wraps memoryStore and returns err from the operations named in fail.
 type failingStore struct {
 	*memoryStore
 	fail map[string]bool

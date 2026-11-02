@@ -7,8 +7,6 @@ import (
 	catalogdomain "github.com/medanielsantos/fiap-soat/internal/servicecatalog/domain"
 )
 
-// stubStore implements only the catalog store methods the work order adapters use;
-// calling any other method panics through the nil embedded interface.
 type stubStore struct {
 	catalogapp.Store
 	service      catalogdomain.Service

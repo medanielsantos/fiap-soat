@@ -15,7 +15,6 @@ func mustItem(t *testing.T, id string, kind domain.ItemType, catalogID string, q
 	return item
 }
 
-// orderIn builds a work order already moved to the requested status through the domain API.
 func orderIn(t *testing.T, status domain.Status, items ...domain.Item) domain.WorkOrder {
 	t.Helper()
 	o, _, err := domain.NewWorkOrder("wo-1", "customer-1", "vehicle-1", "user-1", testNow)

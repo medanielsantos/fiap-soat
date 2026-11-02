@@ -10,7 +10,6 @@ import (
 	"github.com/medanielsantos/fiap-soat/internal/workorder/domain"
 )
 
-// quotedOrder persists wo-1 with one part item and a pending quote.
 func quotedOrder(t *testing.T, repo *Repository) domain.WorkOrder {
 	t.Helper()
 	o := createOrder(t, repo, orderSpec{id: "wo-1", customerID: "customer-1", vehicleID: "vehicle-1"})
@@ -45,8 +44,6 @@ func save(repo *Repository, o domain.WorkOrder) error {
 	return repo.Save(context.Background(), o, domain.HistoryEntry{ID: "evt-x", To: o.Status, UserID: "user-1", CreatedAt: baseTime})
 }
 
-// TestRepositorySurfacesDatabaseErrors breaks the schema underneath the repository and
-// checks that every query failure is returned instead of producing a partial order.
 func TestRepositorySurfacesDatabaseErrors(t *testing.T) {
 	tests := []struct {
 		name string

@@ -72,7 +72,6 @@ func TestRepositoryReservationFailures(t *testing.T) {
 		})
 	}
 
-	// Callers run reservations inside a transaction; a failed movement insert must roll the counters back.
 	for name, run := range map[string]op{"reserve": repo.ReserveStock, "consume": repo.ConsumeReservedStock} {
 		t.Run("test_it_should_roll_back_"+name+"_when_movement_id_is_reused", func(t *testing.T) {
 			err := platformdatabase.NewTransactionManager(db).Within(context.Background(), func(ctx context.Context) error {

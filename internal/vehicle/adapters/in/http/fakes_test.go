@@ -86,7 +86,6 @@ func serve(e *echo.Echo, method, target, body string) *httptest.ResponseRecorder
 	return response
 }
 
-// failingListStore fails every List call with err.
 type failingListStore struct {
 	*handlerVehicleStore
 	err error

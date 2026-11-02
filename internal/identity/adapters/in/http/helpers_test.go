@@ -36,7 +36,6 @@ func newTestEnv(t *testing.T) *testEnv {
 	return env
 }
 
-// addUser stores an active user and returns a bearer token for it.
 func (env *testEnv) addUser(t *testing.T, id string, roles []application.UserRole, permissions ...application.Permission) string {
 	t.Helper()
 	env.store.users[id] = application.User{ID: id, Name: id, Email: id + "@example.test", Status: application.UserStatusActive, Roles: roles, Permissions: permissions}
@@ -74,7 +73,6 @@ func (env *testEnv) send(method, path, authorization, body string) *httptest.Res
 	return response
 }
 
-// assertProblem checks the status code and, for problem responses, the title.
 func assertProblem(t *testing.T, response *httptest.ResponseRecorder, status int, title string) {
 	t.Helper()
 	if response.Code != status {

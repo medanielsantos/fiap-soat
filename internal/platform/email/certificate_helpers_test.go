@@ -13,7 +13,6 @@ import (
 	"time"
 )
 
-// newTestCertificate creates a self-signed certificate valid for 127.0.0.1 and a pool trusting it.
 func newTestCertificate(t *testing.T) (*x509.CertPool, tls.Certificate) {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

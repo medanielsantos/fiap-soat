@@ -81,7 +81,6 @@ func activeCustomers(ids ...string) stubCustomerDirectory {
 	return stubCustomerDirectory{active: active}
 }
 
-// failingStore wraps the memory store and fails writes with err.
 type failingStore struct {
 	*memoryVehicleStore
 	err error

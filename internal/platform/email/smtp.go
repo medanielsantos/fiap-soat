@@ -16,8 +16,7 @@ import (
 
 type SMTPMailer struct {
 	host, port, username, password, from string
-	// rootCAs overrides the trusted certificate authorities; nil uses the system pool.
-	rootCAs *x509.CertPool
+	rootCAs                              *x509.CertPool
 }
 
 func NewSMTPMailer(cfg config.Config) *SMTPMailer {

@@ -12,7 +12,6 @@ import (
 
 var errStoreFailure = errors.New("store failure")
 
-// fakeStore is an in-memory application.Store. fail maps "Op" or "Op:id" to the error that operation returns.
 type fakeStore struct {
 	users       map[string]application.User
 	fail        map[string]error

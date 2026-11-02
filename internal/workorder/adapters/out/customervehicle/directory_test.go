@@ -12,7 +12,6 @@ import (
 	"github.com/medanielsantos/fiap-soat/internal/workorder/application"
 )
 
-// Only FindByID is exercised; other store methods panic through the nil embedded interface.
 type customerStore struct {
 	customerapp.CustomerStore
 	customer customerdomain.Customer

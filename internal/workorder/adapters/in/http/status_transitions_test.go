@@ -9,7 +9,6 @@ import (
 
 const base = "/api/v1/work-orders/id-1"
 
-// diagnosedWithPart creates id-1, diagnoses it and adds part-1 x2 (item id-4).
 func diagnosedWithPart(t *testing.T) *testServer {
 	t.Helper()
 	s := newTestServer()

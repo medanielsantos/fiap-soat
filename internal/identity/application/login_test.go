@@ -38,7 +38,6 @@ func TestLoginRejectsInvalidCredentials(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// memoryStore hides soft-deleted users by email; expose them to exercise the service guard.
 			service := NewService(deletedVisibleStore{loginStore(t, tt.user)}, fixedIDs{"unused"}, fixedTokens{}, nil, "")
 			if _, err := service.Login(context.Background(), tt.email, tt.password); !errors.Is(err, ErrInvalidCredentials) {
 				t.Fatalf("Login() error = %v, want %v", err, ErrInvalidCredentials)

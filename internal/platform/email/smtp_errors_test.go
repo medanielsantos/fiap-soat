@@ -50,7 +50,7 @@ func TestSendRequiresSTARTTLS(t *testing.T) {
 func TestSendRejectsUntrustedCertificate(t *testing.T) {
 	server := startFakeSMTP(t, nil)
 	mailer := server.mailer("user")
-	mailer.rootCAs = nil // system roots do not trust the test certificate
+	mailer.rootCAs = nil
 
 	if err := mailer.Send(context.Background(), "to@test", "s", "b"); err == nil || !strings.Contains(err.Error(), "certificate") {
 		t.Fatalf("err = %v, want certificate verification error", err)

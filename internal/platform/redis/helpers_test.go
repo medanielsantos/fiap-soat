@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-// newTestLimiter connects to the Redis server in TEST_REDIS_URL, skipping when unset.
 func newTestLimiter(t *testing.T) *RateLimiter {
 	t.Helper()
 	redisURL := os.Getenv("TEST_REDIS_URL")

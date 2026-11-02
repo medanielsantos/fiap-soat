@@ -20,7 +20,6 @@ func TestResetPasswordConsumesTokenOnce(t *testing.T) {
 	if err := repository.CreateReset(ctx, "user", resetHash("a"), now.Add(30*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	// A new request replaces the previous unused token.
 	if err := repository.CreateReset(ctx, "user", resetHash("b"), now.Add(30*time.Minute)); err != nil {
 		t.Fatal(err)
 	}

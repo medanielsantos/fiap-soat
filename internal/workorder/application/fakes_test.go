@@ -16,7 +16,6 @@ var (
 	errStorage = errors.New("storage down")
 )
 
-// memoryStore keeps deep copies so a failed mutation never leaks into persisted state.
 type memoryStore struct {
 	orders    map[string]domain.WorkOrder
 	events    []domain.HistoryEntry
@@ -86,7 +85,6 @@ func (s *memoryStore) Save(_ context.Context, o domain.WorkOrder, e domain.Histo
 	return nil
 }
 
-// plainStore implements Store without ClientOrderStore.
 type plainStore struct{ Store }
 
 type passthroughTx struct{ calls int }
@@ -96,7 +94,6 @@ func (tx *passthroughTx) Within(ctx context.Context, fn func(context.Context) er
 	return fn(ctx)
 }
 
-// sequenceIDs returns id-1, id-2, ... and fails on the call number failAt (1-based).
 type sequenceIDs struct {
 	n, failAt int
 }

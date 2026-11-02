@@ -11,7 +11,6 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-// newSchemaDSN creates an empty, isolated schema and returns a DSN whose search_path targets it.
 func newSchemaDSN(t *testing.T) (string, *sql.DB) {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")

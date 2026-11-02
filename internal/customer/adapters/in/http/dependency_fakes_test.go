@@ -87,7 +87,6 @@ func (inventory fakeInventory) Consume(context.Context, string, string, []workor
 	return inventory.err
 }
 
-// pendingQuoteOrder returns a work order awaiting approval of quote version 1.
 func pendingQuoteOrder(id, customerID, vehicleID string) workorderdomain.WorkOrder {
 	part := workorderdomain.Item{ID: "item-1", Type: workorderdomain.PartItem, CatalogID: "part-1", Code: "P1", Description: "Oil filter", Unit: "un", Quantity: 2, UnitPriceInCents: 1500}
 	now := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)

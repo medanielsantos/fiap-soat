@@ -9,8 +9,6 @@ import (
 	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
 )
 
-// TestRepositoryPropagatesQueryErrorsInsideOperations drops a table from the
-// isolated schema so a query that runs after earlier successful steps fails.
 func TestRepositoryPropagatesQueryErrorsInsideOperations(t *testing.T) {
 	params, err := pagination.NewParams(1, pagination.DefaultPerPage)
 	if err != nil {

@@ -10,7 +10,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// credentialCustomerStore adds the credential and password-reset ports to the in-memory store.
 type credentialCustomerStore struct {
 	*memoryCustomerStore
 	byEmail      map[string]domain.Customer
@@ -73,7 +72,6 @@ func (store *credentialCustomerStore) ResetCustomerPassword(_ context.Context, t
 	return store.resetErr
 }
 
-// credentialOnlyStore implements the credential port but not the password-reset port.
 type credentialOnlyStore struct {
 	*memoryCustomerStore
 	customer domain.Customer

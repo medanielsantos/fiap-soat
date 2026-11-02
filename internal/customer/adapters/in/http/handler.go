@@ -350,8 +350,6 @@ func (handler *Handler) clientOrder(c *echo.Context) (workorderdomain.WorkOrder,
 	return handler.workOrders.GetForClient(c.Request().Context(), c.Param("id"), customerID, vehicleID)
 }
 
-// enforceRateLimit reports whether the request may proceed. When it may not, the problem
-// response has already been written and the caller must return the accompanying error.
 func (handler *Handler) enforceRateLimit(c *echo.Context, key string, limit int) (bool, error) {
 	if handler.rateLimiter == nil {
 		return false, writeProblem(c, http.StatusServiceUnavailable, "Client access unavailable", "Rate limiting is temporarily unavailable.")

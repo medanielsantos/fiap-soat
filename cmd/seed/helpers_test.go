@@ -14,7 +14,6 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
-// newSchemaDSN creates an isolated schema (optionally migrated) and returns a DSN targeting it.
 func newSchemaDSN(t *testing.T, migrate bool) (string, *sql.DB) {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")

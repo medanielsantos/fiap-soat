@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-// setAPIEnvironment configures a resolvable container listening on a free local port and returns its base URL.
 func setAPIEnvironment(t *testing.T) string {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")

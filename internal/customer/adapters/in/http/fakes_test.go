@@ -13,11 +13,10 @@ import (
 
 var errBackend = errors.New("backend unavailable")
 
-// clientCustomerStore extends handlerCustomerStore with the credential and reset ports.
 type clientCustomerStore struct {
 	*handlerCustomerStore
-	plates    map[string]string // plate -> vehicle ID
-	owner     map[string]string // plate -> customer ID
+	plates    map[string]string
+	owner     map[string]string
 	listErr   error
 	updateErr error
 	resetErr  error
