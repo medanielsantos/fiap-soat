@@ -18,6 +18,9 @@ func TestLoadAppliesDefaultsWhenEnvironmentIsEmpty(t *testing.T) {
 	if cfg.JWTIssuer != "fiap-soat" || cfg.SMTPPort != "587" || cfg.JWTExpiry != 24*time.Hour {
 		t.Errorf("unexpected defaults: issuer=%q smtpPort=%q expiry=%s", cfg.JWTIssuer, cfg.SMTPPort, cfg.JWTExpiry)
 	}
+	if cfg.AppEnv != "production" {
+		t.Errorf("AppEnv = %q, want production", cfg.AppEnv)
+	}
 }
 
 func TestLoadReadsEveryVariable(t *testing.T) {
@@ -26,8 +29,8 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		"APP_HTTP_PORT": "9090", "DATABASE_URL": "postgres://explicit/db", "REDIS_URL": "redis://cache:6379/0",
 		"JWT_SECRET": "secret", "JWT_ISSUER": "issuer", "SMTP_HOST": "smtp.test", "SMTP_PORT": "2525",
 		"SMTP_USERNAME": "user", "SMTP_PASSWORD": "pass", "SMTP_FROM": "from@test", "PASSWORD_RESET_URL": "https://reset",
-		"CUSTOMER_PASSWORD_RESET_URL": "https://customer-reset", "ADMIN_NAME": "Admin", "ADMIN_EMAIL": "admin@test",
-		"ADMIN_PASSWORD": "admin-pass", "DB_NAME": "ignored", "DB_USER": "ignored",
+		"CUSTOMER_PASSWORD_RESET_URL": "https://customer-reset", "APP_ENV": "local",
+		"DEFAULT_PASSWORD_SEED": "seed-pass", "DB_NAME": "ignored", "DB_USER": "ignored",
 	}
 	for key, value := range values {
 		t.Setenv(key, value)
@@ -38,7 +41,7 @@ func TestLoadReadsEveryVariable(t *testing.T) {
 		HTTPAddress: ":9090", DatabaseURL: "postgres://explicit/db", RedisURL: "redis://cache:6379/0",
 		JWTSecret: "secret", JWTIssuer: "issuer", JWTExpiry: 24 * time.Hour, SMTPHost: "smtp.test", SMTPPort: "2525",
 		SMTPUser: "user", SMTPPassword: "pass", SMTPFrom: "from@test", PasswordResetURL: "https://reset",
-		CustomerPasswordResetURL: "https://customer-reset", AdminName: "Admin", AdminEmail: "admin@test", AdminPassword: "admin-pass",
+		CustomerPasswordResetURL: "https://customer-reset", AppEnv: "local", SeedPassword: "seed-pass",
 	}
 	if got != want {
 		t.Fatalf("Load() = %+v\nwant %+v", got, want)

@@ -2,6 +2,7 @@ package config
 
 import (
 	"bufio"
+	"fmt"
 	"net/url"
 	"os"
 	"strings"
@@ -9,6 +10,12 @@ import (
 )
 
 const defaultHTTPPort = "8080"
+
+const (
+	EnvLocal      = "local"
+	EnvStaging    = "staging"
+	EnvProduction = "production"
+)
 
 type Config struct {
 	HTTPAddress              string
@@ -24,9 +31,8 @@ type Config struct {
 	SMTPFrom                 string
 	PasswordResetURL         string
 	CustomerPasswordResetURL string
-	AdminName                string
-	AdminEmail               string
-	AdminPassword            string
+	AppEnv                   string
+	SeedPassword             string
 }
 
 func Load() Config {
@@ -53,10 +59,22 @@ func Load() Config {
 		SMTPFrom:                 os.Getenv("SMTP_FROM"),
 		PasswordResetURL:         os.Getenv("PASSWORD_RESET_URL"),
 		CustomerPasswordResetURL: os.Getenv("CUSTOMER_PASSWORD_RESET_URL"),
-		AdminName:                os.Getenv("ADMIN_NAME"),
-		AdminEmail:               os.Getenv("ADMIN_EMAIL"),
-		AdminPassword:            os.Getenv("ADMIN_PASSWORD"),
+		AppEnv:                   envOr("APP_ENV", EnvProduction),
+		SeedPassword:             os.Getenv("DEFAULT_PASSWORD_SEED"),
 	}
+}
+
+func LoadValidated() (Config, error) {
+	cfg := Load()
+	return cfg, cfg.Validate()
+}
+
+func (c Config) Validate() error {
+	switch c.AppEnv {
+	case EnvLocal, EnvStaging, EnvProduction:
+		return nil
+	}
+	return fmt.Errorf("invalid APP_ENV %q: use %s, %s or %s", c.AppEnv, EnvLocal, EnvStaging, EnvProduction)
 }
 
 func envOr(key, fallback string) string {

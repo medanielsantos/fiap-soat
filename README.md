@@ -58,7 +58,7 @@ Também é possível usar `make docker-up` e `make docker-down`. O `.docker/Dock
 
 ## Usuários administrativos
 
-- `make seed`: após `make migrate`, popula `roles`, `permissions` e `role_permissions`, e cria o administrador inicial a partir de `ADMIN_NAME`, `ADMIN_EMAIL` e `ADMIN_PASSWORD` em `.env`. Os vínculos ficam nas pivôs `user_roles` e `user_permissions`. A operação não altera usuários existentes.
+- `make seed`: após `make migrate`, popula `roles`, `permissions` e `role_permissions` e cria três usuários de desenvolvimento com a senha de `DEFAULT_PASSWORD_SEED`: `admin@oficina.local` (admin), `gerente@oficina.local` (manager) e `atendente@oficina.local` (attendant). Só roda com `APP_ENV=local`; em qualquer outro ambiente o comando falha. Usuários já existentes são mantidos sem alteração.
 - `POST /api/v1/admin/users`: administrador ou gerente cria usuário; `roles` aceita uma lista de perfis (`admin`, `manager`, `attendant`). Gerentes só podem criar atendentes.
 - `GET /api/v1/admin/users?page=1&per_page=20` e `GET /api/v1/admin/users/{id}`: lista paginada e consulta de usuários.
 - `PATCH /api/v1/admin/users/{id}/status`: altera o status para `active`, `inactive`, `pending`, `suspended`, `banned` ou `deleted`. Somente usuários ativos podem entrar; uma alteração de status bloqueante também invalida o acesso às rotas protegidas imediatamente.

@@ -29,9 +29,8 @@ services:
       SMTP_FROM: ${SMTP_FROM:-no-reply@oficina.local}
       PASSWORD_RESET_URL: ${PASSWORD_RESET_URL:-http://localhost:3000/redefinir-senha}
       CUSTOMER_PASSWORD_RESET_URL: ${CUSTOMER_PASSWORD_RESET_URL:-http://localhost:3000/redefinir-senha-cliente}
-      ADMIN_NAME: ${ADMIN_NAME:-}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      APP_ENV: ${APP_ENV:-local}
+      DEFAULT_PASSWORD_SEED: ${DEFAULT_PASSWORD_SEED:-}
     ports:
       - "${APP_HTTP_HOST_PORT:-8080}:8080"
     depends_on:
