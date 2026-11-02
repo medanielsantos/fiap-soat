@@ -156,7 +156,7 @@ const (
 )
 
 func (handler *Handler) clientLogin(c *echo.Context) error {
-	if err := handler.enforceRateLimit(c, "client:auth:"+c.RealIP(), clientAuthLimit); err != nil {
+	if allowed, err := handler.enforceRateLimit(c, "client:auth:"+c.RealIP(), clientAuthLimit); !allowed {
 		return err
 	}
 	var req clientLoginRequest
@@ -175,7 +175,7 @@ func (handler *Handler) clientLogin(c *echo.Context) error {
 }
 
 func (handler *Handler) plateLogin(c *echo.Context) error {
-	if err := handler.enforceRateLimit(c, "client:auth:"+c.RealIP(), clientAuthLimit); err != nil {
+	if allowed, err := handler.enforceRateLimit(c, "client:auth:"+c.RealIP(), clientAuthLimit); !allowed {
 		return err
 	}
 	var req plateLoginRequest
@@ -194,7 +194,7 @@ func (handler *Handler) plateLogin(c *echo.Context) error {
 }
 
 func (handler *Handler) clientForgotPassword(c *echo.Context) error {
-	if err := handler.enforceRateLimit(c, "client:auth:"+c.RealIP(), clientAuthLimit); err != nil {
+	if allowed, err := handler.enforceRateLimit(c, "client:auth:"+c.RealIP(), clientAuthLimit); !allowed {
 		return err
 	}
 	var req struct {
@@ -210,7 +210,7 @@ func (handler *Handler) clientForgotPassword(c *echo.Context) error {
 }
 
 func (handler *Handler) clientResetPassword(c *echo.Context) error {
-	if err := handler.enforceRateLimit(c, "client:auth:"+c.RealIP(), clientAuthLimit); err != nil {
+	if allowed, err := handler.enforceRateLimit(c, "client:auth:"+c.RealIP(), clientAuthLimit); !allowed {
 		return err
 	}
 	var req clientResetRequest
@@ -238,7 +238,7 @@ func (handler *Handler) requireClient() echo.MiddlewareFunc {
 			if err != nil || !customer.IsActive() {
 				return writeProblem(c, 401, "Invalid access token", "The token is invalid or expired.")
 			}
-			if err := handler.enforceRateLimit(c, "client:api:"+customerID+":"+c.RealIP(), clientAPIRequestLimit); err != nil {
+			if allowed, err := handler.enforceRateLimit(c, "client:api:"+customerID+":"+c.RealIP(), clientAPIRequestLimit); !allowed {
 				return err
 			}
 			c.Set("client_id", customerID)
@@ -350,19 +350,21 @@ func (handler *Handler) clientOrder(c *echo.Context) (workorderdomain.WorkOrder,
 	return handler.workOrders.GetForClient(c.Request().Context(), c.Param("id"), customerID, vehicleID)
 }
 
-func (handler *Handler) enforceRateLimit(c *echo.Context, key string, limit int) error {
+// enforceRateLimit reports whether the request may proceed. When it may not, the problem
+// response has already been written and the caller must return the accompanying error.
+func (handler *Handler) enforceRateLimit(c *echo.Context, key string, limit int) (bool, error) {
 	if handler.rateLimiter == nil {
-		return writeProblem(c, http.StatusServiceUnavailable, "Client access unavailable", "Rate limiting is temporarily unavailable.")
+		return false, writeProblem(c, http.StatusServiceUnavailable, "Client access unavailable", "Rate limiting is temporarily unavailable.")
 	}
 	allowed, err := handler.rateLimiter.Allow(c.Request().Context(), key, limit, time.Minute)
 	if err != nil {
-		return writeProblem(c, http.StatusServiceUnavailable, "Client access unavailable", "Rate limiting is temporarily unavailable.")
+		return false, writeProblem(c, http.StatusServiceUnavailable, "Client access unavailable", "Rate limiting is temporarily unavailable.")
 	}
 	if !allowed {
 		c.Response().Header().Set(echo.HeaderRetryAfter, "60")
-		return writeProblem(c, http.StatusTooManyRequests, "Too many requests", "Try again later.")
+		return false, writeProblem(c, http.StatusTooManyRequests, "Too many requests", "Try again later.")
 	}
-	return nil
+	return true, nil
 }
 
 func (handler *Handler) Create(c *echo.Context) error {

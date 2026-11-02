@@ -2,52 +2,16 @@ package postgres
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/medanielsantos/fiap-soat/internal/customer/application"
 	"github.com/medanielsantos/fiap-soat/internal/customer/domain"
 	"github.com/medanielsantos/fiap-soat/internal/platform/pagination"
-	postgresdriver "gorm.io/driver/postgres"
-	"gorm.io/gorm"
+	"github.com/medanielsantos/fiap-soat/internal/platform/testdb"
 )
 
 func TestCustomerRepositorySoftDelete(t *testing.T) {
-	databaseURL := os.Getenv("TEST_DATABASE_URL")
-	if databaseURL == "" {
-		t.Skip("set TEST_DATABASE_URL to run the PostgreSQL soft-delete integration test")
-	}
-	db, err := gorm.Open(postgresdriver.Open(databaseURL), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("open test database: %v", err)
-	}
-	sqlDB, err := db.DB()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = sqlDB.Close() })
-
-	tx := db.Begin()
-	if tx.Error != nil {
-		t.Fatalf("begin test transaction: %v", tx.Error)
-	}
-	t.Cleanup(func() { _ = tx.Rollback().Error })
-	if err := tx.Exec(`CREATE TEMP TABLE customers (
-		id TEXT PRIMARY KEY,
-		document VARCHAR(14) NOT NULL,
-		name TEXT NOT NULL,
-		email TEXT NOT NULL,
-		phone TEXT NOT NULL,
-		status VARCHAR(8) NOT NULL,
-		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-		deleted_at TIMESTAMPTZ
-	)`).Error; err != nil {
-		t.Fatalf("create temporary customers table: %v", err)
-	}
-	if err := tx.Exec("CREATE UNIQUE INDEX ux_customers_document ON customers (document) WHERE deleted_at IS NULL").Error; err != nil {
-		t.Fatalf("create temporary document index: %v", err)
-	}
+	tx := testdb.Open(t)
 
 	document, err := domain.NewDocument("529.982.247-25")
 	if err != nil {

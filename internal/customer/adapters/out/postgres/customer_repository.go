@@ -45,14 +45,15 @@ func (repository *CustomerRepository) FindByEmail(ctx context.Context, email str
 func (repository *CustomerRepository) FindByPlateAndDocumentPrefix(ctx context.Context, plate, prefix string) (domain.Customer, string, error) {
 	var record customerRecord
 	var vehicleID string
+	// Record must be an exported field: gorm ignores the fields of an unexported embedded struct.
 	var result struct {
-		customerRecord
-		VehicleID string `gorm:"column:vehicle_id"`
+		Record    customerRecord `gorm:"embedded"`
+		VehicleID string         `gorm:"column:vehicle_id"`
 	}
-	if err := repository.db.WithContext(ctx).Table("customers AS c").Select("c.*, vehicles.id AS vehicle_id").Joins("JOIN vehicles ON vehicles.customer_id = c.id").Where("vehicles.plate = ? AND vehicles.deleted_at IS NULL AND c.deleted_at IS NULL AND c.document LIKE ? AND c.status = ?", plate, prefix+"%", "active").First(&result).Error; err != nil {
+	if err := repository.db.WithContext(ctx).Table("customers AS c").Select("c.*, vehicles.id AS vehicle_id").Joins("JOIN vehicles ON vehicles.customer_id = c.id").Where("vehicles.plate = ? AND vehicles.deleted_at IS NULL AND c.deleted_at IS NULL AND c.document LIKE ? AND c.status = ?", plate, prefix+"%", "active").Take(&result).Error; err != nil {
 		return domain.Customer{}, "", translateError(err)
 	}
-	record, vehicleID = result.customerRecord, result.VehicleID
+	record, vehicleID = result.Record, result.VehicleID
 	customer, err := record.toDomain()
 	return customer, vehicleID, err
 }

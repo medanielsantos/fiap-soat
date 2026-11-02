@@ -21,7 +21,7 @@ test-integration:
 	go test ./tests/integration
 
 test-coverage:
-	go test -cover ./internal/workorder/domain ./internal/servicecatalog/domain
+	./scripts/coverage.sh
 
 lint:
 	$(GOLANGCI_LINT) run ./...
