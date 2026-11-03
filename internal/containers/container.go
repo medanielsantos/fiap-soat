@@ -49,7 +49,7 @@ func provide(container *dig.Container, constructors ...any) error {
 
 func constructors() []any {
 	return []any{
-		config.Load,
+		config.LoadValidated,
 		func(cfg config.Config) (ratelimit.Limiter, error) {
 			return redisadapter.NewRateLimiter(cfg.RedisURL)
 		},

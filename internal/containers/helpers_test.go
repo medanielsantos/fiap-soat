@@ -15,7 +15,7 @@ func setValidEnvironment(t *testing.T) {
 	}
 	for key, value := range map[string]string{
 		"DATABASE_URL": dsn, "DB_NAME": "", "DB_USER": "", "REDIS_URL": "redis://127.0.0.1:1/0",
-		"JWT_SECRET": testJWTSecret, "JWT_ISSUER": "", "APP_HTTP_PORT": "", "SMTP_HOST": "", "SMTP_FROM": "",
+		"JWT_SECRET": testJWTSecret, "JWT_ISSUER": "", "APP_HTTP_PORT": "", "SMTP_HOST": "", "SMTP_FROM": "", "APP_ENV": "local",
 	} {
 		t.Setenv(key, value)
 	}

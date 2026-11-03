@@ -1,0 +1,2534 @@
+{
+  "info": {
+    "_postman_id": "aff086be-8e86-431a-8c41-85598d17a831",
+    "name": "Sistema de Gestão de Oficina",
+    "description": "API REST da oficina (FIAP SOAT).\n\n1. Selecione o environment **Oficina · Local**.\n2. Rode **01 · Autenticação administrativa › Login**.\n3. Execute as pastas na ordem: cada criação guarda o ID para as próximas requisições.\n\nErros seguem RFC 9457 (application/problem+json).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "client_token",
+      "value": ""
+    },
+    {
+      "key": "user_id",
+      "value": ""
+    },
+    {
+      "key": "user_email",
+      "value": ""
+    },
+    {
+      "key": "customer_id",
+      "value": ""
+    },
+    {
+      "key": "customer_document",
+      "value": ""
+    },
+    {
+      "key": "customer_document_prefix",
+      "value": ""
+    },
+    {
+      "key": "customer_email",
+      "value": ""
+    },
+    {
+      "key": "vehicle_id",
+      "value": ""
+    },
+    {
+      "key": "vehicle_plate",
+      "value": ""
+    },
+    {
+      "key": "service_id",
+      "value": ""
+    },
+    {
+      "key": "part_id",
+      "value": ""
+    },
+    {
+      "key": "work_order_id",
+      "value": ""
+    },
+    {
+      "key": "item_id",
+      "value": ""
+    },
+    {
+      "key": "admin_reset_token",
+      "value": ""
+    },
+    {
+      "key": "client_reset_token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "00 · Saúde",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{health_url}}/health",
+              "host": [
+                "{{health_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"status ok\", () => pm.expect(pm.response.json().status).to.eql(\"ok\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 · Autenticação administrativa",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Usuários de desenvolvimento (criados por make seed em APP_ENV=local):\n- Administrador: admin@oficina.local\n- Gerente: gerente@oficina.local\n- Atendente: atendente@oficina.local\nSenha dos três: {{admin_password}} (DEFAULT_PASSWORD_SEED; padrão local: password@2026).\n\nAltere admin_email para qualquer usuário acima e execute Login. Use {{ }} para variáveis do Postman; {{$guid}} é uma variável dinâmica."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "if (pm.response.code < 300) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set(\"access_token\", body.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Esqueci a senha",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/password/forgot",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "password",
+                "forgot"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 202\", () => pm.expect(pm.response.code).to.be.oneOf([202]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Redefinir senha",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/password/reset",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "password",
+                "reset"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{admin_reset_token}}\",\n  \"password\": \"NovaSenha@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Use o token recebido por e-mail em admin_reset_token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get(\"admin_reset_token\")) {",
+                  "  pm.test.skip(\"preencha admin_reset_token com o token recebido por e-mail\", () => {});",
+                  "} else {",
+                  "  pm.test(\"status 204\", () => pm.response.to.have.status(204));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Emissão e recuperação de sessão administrativa. O login salva access_token, usado por toda a collection."
+    },
+    {
+      "name": "02 · Usuários administrativos",
+      "item": [
+        {
+          "name": "Criar usuário",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Atendente Demo\",\n  \"email\": \"{{user_email}}\",\n  \"password\": \"SenhaForte@2026\",\n  \"role\": \"attendant\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"user_email\", `atendente.${Date.now()}@example.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "if (pm.response.code < 300) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set(\"user_id\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar usuários",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users?page=1&per_page=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "per_page",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200 ou 204\", () => pm.expect(pm.response.code).to.be.oneOf([200, 204]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar usuário",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Alterar status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{user_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{user_id}}",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"suspended\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Valores: active, inactive, pending, suspended, banned."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Alterar perfis",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{user_id}}/roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{user_id}}",
+                "roles"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roles\": [\n    \"attendant\",\n    \"manager\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Perfis: admin, manager, attendant."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conceder permissão",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{user_id}}/permissions/catalog.products.create",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{user_id}}",
+                "permissions",
+                "catalog.products.create"
+              ]
+            },
+            "description": "Atendente não pode receber catalog.products.delete nem catalog.products.price.update; gerente não pode receber users.delete."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 204\", () => pm.expect(pm.response.code).to.be.oneOf([204]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Revogar permissão",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{user_id}}/permissions/catalog.products.create",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{user_id}}",
+                "permissions",
+                "catalog.products.create"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 204\", () => pm.expect(pm.response.code).to.be.oneOf([204]));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Gestão de usuários protegida por RBAC."
+    },
+    {
+      "name": "03 · Clientes",
+      "item": [
+        {
+          "name": "Cadastrar cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/customers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"document\": \"{{customer_document}}\",\n  \"name\": \"Maria Silva\",\n  \"email\": \"{{customer_email}}\",\n  \"phone\": \"11999990000\",\n  \"password\": \"{{client_password}}\",\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Gera um CPF válido e um e-mail único a cada execução. A senha permite o login do cliente."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const n = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));",
+                  "const dv = (d) => { const s = d.reduce((a, v, i) => a + v * (d.length + 1 - i), 0) % 11; return s < 2 ? 0 : 11 - s; };",
+                  "n.push(dv(n)); n.push(dv(n));",
+                  "pm.collectionVariables.set(\"customer_document\", n.join(\"\"));",
+                  "pm.collectionVariables.set(\"customer_email\", `cliente.${Date.now()}@example.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "if (pm.response.code < 300) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set(\"customer_id\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar clientes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers?page=1&per_page=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "per_page",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200 ou 204\", () => pm.expect(pm.response.code).to.be.oneOf([200, 204]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar cliente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers/{{customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "{{customer_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar cliente",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/customers/{{customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "{{customer_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"document\": \"{{customer_document}}\",\n  \"name\": \"Maria Silva Souza\",\n  \"email\": \"{{customer_email}}\",\n  \"phone\": \"11988887777\",\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 · Veículos",
+      "item": [
+        {
+          "name": "Cadastrar veículo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vehicles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicles"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": \"{{customer_id}}\",\n  \"plate\": \"{{vehicle_plate}}\",\n  \"brand\": \"Volkswagen\",\n  \"model\": \"Gol\",\n  \"year\": 2020\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Gera uma placa Mercosul aleatória."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const L = \"ABCDEFGHIJKLMNOPQRSTUVWXYZ\";",
+                  "const r = (s) => s[Math.floor(Math.random() * s.length)];",
+                  "const d = () => Math.floor(Math.random() * 10);",
+                  "pm.collectionVariables.set(\"vehicle_plate\", `${r(L)}${r(L)}${r(L)}${d()}${r(L)}${d()}${d()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "if (pm.response.code < 300) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set(\"vehicle_id\", body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar veículos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vehicles?page=1&per_page=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicles"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "per_page",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "customer_id",
+                  "value": "{{customer_id}}",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200 ou 204\", () => pm.expect(pm.response.code).to.be.oneOf([200, 204]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buscar veículo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vehicles/{{vehicle_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicle_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar veículo",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vehicles/{{vehicle_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicle_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": \"{{customer_id}}\",\n  \"plate\": \"{{vehicle_plate}}\",\n  \"brand\": \"Volkswagen\",\n  \"model\": \"Gol 1.0\",\n  \"year\": 2021\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 · Catálogo e estoque",
+      "item": [
+        {
+          "name": "Serviços",
+          "item": [
+            {
+              "name": "Cadastrar serviço",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/services",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "services"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"internal_code\": \"SRV-{{$timestamp}}\",\n  \"name\": \"Troca de óleo\",\n  \"description\": \"Troca de óleo e filtro\",\n  \"sale_price_in_cents\": 12000,\n  \"estimated_duration_minutes\": 45\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Valores em centavos."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 201\", () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                      "if (pm.response.code < 300) {",
+                      "  const body = pm.response.json();",
+                      "  pm.collectionVariables.set(\"service_id\", body.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Listar serviços",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/services?page=1&per_page=20",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "services"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "disabled": false
+                    },
+                    {
+                      "key": "per_page",
+                      "value": "20",
+                      "disabled": false
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200 ou 204\", () => pm.expect(pm.response.code).to.be.oneOf([200, 204]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Buscar serviço",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/services/{{service_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "services",
+                    "{{service_id}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Atualizar serviço",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/services/{{service_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "services",
+                    "{{service_id}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"internal_code\": \"SRV-{{$timestamp}}\",\n  \"name\": \"Troca de óleo\",\n  \"description\": \"Troca de óleo sintético e filtro\",\n  \"sale_price_in_cents\": 12000,\n  \"estimated_duration_minutes\": 50,\n  \"active\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Alterar preço exige a permissão catalog.products.price.update."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Peças",
+          "item": [
+            {
+              "name": "Cadastrar peça",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/parts",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "parts"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"sku\": \"SKU-{{$timestamp}}\",\n  \"internal_code\": \"PEC-{{$timestamp}}\",\n  \"name\": \"Filtro de óleo\",\n  \"description\": \"Filtro de óleo motor 1.0\",\n  \"unit\": \"un\",\n  \"purchase_price_in_cents\": 2500,\n  \"sale_price_in_cents\": 4500,\n  \"initial_stock\": 10\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 201\", () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                      "if (pm.response.code < 300) {",
+                      "  const body = pm.response.json();",
+                      "  pm.collectionVariables.set(\"part_id\", body.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Listar peças",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/parts?page=1&per_page=20",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "parts"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "disabled": false
+                    },
+                    {
+                      "key": "per_page",
+                      "value": "20",
+                      "disabled": false
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200 ou 204\", () => pm.expect(pm.response.code).to.be.oneOf([200, 204]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Buscar peça",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/parts/{{part_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "parts",
+                    "{{part_id}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Atualizar peça",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/parts/{{part_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "parts",
+                    "{{part_id}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"sku\": \"SKU-{{$timestamp}}\",\n  \"internal_code\": \"PEC-{{$timestamp}}\",\n  \"name\": \"Filtro de óleo\",\n  \"description\": \"Filtro de óleo motor 1.0 e 1.6\",\n  \"unit\": \"un\",\n  \"purchase_price_in_cents\": 2500,\n  \"sale_price_in_cents\": 4500,\n  \"active\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Estoque",
+          "item": [
+            {
+              "name": "Entrada de estoque",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/parts/{{part_id}}/stock-movements",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "parts",
+                    "{{part_id}}",
+                    "stock-movements"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"entry\",\n  \"quantity\": 5,\n  \"description\": \"Compra fornecedor\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 201 ou 200\", () => pm.expect(pm.response.code).to.be.oneOf([201, 200]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Saída de estoque",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/parts/{{part_id}}/stock-movements",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "parts",
+                    "{{part_id}}",
+                    "stock-movements"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"exit\",\n  \"quantity\": 1,\n  \"description\": \"Ajuste de inventário\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "A saída é limitada ao estoque disponível (físico − reservado)."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 201 ou 200\", () => pm.expect(pm.response.code).to.be.oneOf([201, 200]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Histórico de movimentações",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/parts/{{part_id}}/stock-movements?page=1&per_page=20",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "parts",
+                    "{{part_id}}",
+                    "stock-movements"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "disabled": false
+                    },
+                    {
+                      "key": "per_page",
+                      "value": "20",
+                      "disabled": false
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200 ou 204\", () => pm.expect(pm.response.code).to.be.oneOf([200, 204]));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 · Ordens de serviço",
+      "item": [
+        {
+          "name": "Abertura e orçamento",
+          "item": [
+            {
+              "name": "Abrir OS",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/work-orders",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "work-orders"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_id\": \"{{customer_id}}\",\n  \"vehicle_id\": \"{{vehicle_id}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 201\", () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                      "if (pm.response.code < 300) {",
+                      "  const body = pm.response.json();",
+                      "  pm.collectionVariables.set(\"work_order_id\", body.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Listar OS",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/work-orders?page=1&per_page=20",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "work-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "disabled": false
+                    },
+                    {
+                      "key": "per_page",
+                      "value": "20",
+                      "disabled": false
+                    },
+                    {
+                      "key": "status",
+                      "value": "diagnosis",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200 ou 204\", () => pm.expect(pm.response.code).to.be.oneOf([200, 204]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Buscar OS",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/work-orders/{{work_order_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "work-orders",
+                    "{{work_order_id}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Registrar diagnóstico",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/work-orders/{{work_order_id}}/diagnosis",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "diagnosis"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"diagnosis\": \"Óleo vencido e filtro saturado\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Adicionar serviço",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/work-orders/{{work_order_id}}/items",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "items"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"service\",\n  \"catalog_id\": \"{{service_id}}\",\n  \"quantity\": 1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200 ou 201\", () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Adicionar peça",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/work-orders/{{work_order_id}}/items",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "items"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"part\",\n  \"catalog_id\": \"{{part_id}}\",\n  \"quantity\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200 ou 201\", () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                      "if (pm.response.code < 300) {",
+                      "  const items = pm.response.json().items || [];",
+                      "  if (items.length) pm.collectionVariables.set(\"item_id\", items[items.length - 1].id);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Submeter orçamento",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/work-orders/{{work_order_id}}/quotes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "quotes"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200 ou 201\", () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ],
+          "description": "Passo a passo até a OS ficar aguardando aprovação."
+        },
+        {
+          "name": "Decisão do orçamento (atendimento)",
+          "item": [
+            {
+              "name": "Aprovar orçamento",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/work-orders/{{work_order_id}}/quotes/approve",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "quotes",
+                    "approve"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"client_id\": \"{{customer_id}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Registra a aprovação em nome do cliente e reserva as peças."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Rejeitar orçamento",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/work-orders/{{work_order_id}}/quotes/reject",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "quotes",
+                    "reject"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"client_id\": \"{{customer_id}}\",\n  \"note\": \"Cliente pediu revisão\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Alternativa à aprovação: a OS volta para diagnóstico. Use uma ou outra."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200 ou 409\", () => pm.expect(pm.response.code).to.be.oneOf([200, 409]));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Execução e entrega",
+          "item": [
+            {
+              "name": "Consumir peças",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/work-orders/{{work_order_id}}/consumptions",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "consumptions"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"part_id\": \"{{part_id}}\",\n  \"quantity\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Finalizar OS",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/work-orders/{{work_order_id}}/complete",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "complete"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "description": "Exige o consumo integral das peças reservadas."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Entregar veículo",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/work-orders/{{work_order_id}}/deliver",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "deliver"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Itens",
+          "item": [
+            {
+              "name": "Remover item",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/work-orders/{{work_order_id}}/items/{{item_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "items",
+                    "{{item_id}}"
+                  ]
+                },
+                "description": "Permitido apenas com a OS em diagnóstico."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200 ou 204 ou 409\", () => pm.expect(pm.response.code).to.be.oneOf([200, 204, 409]));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "Fluxo: recebida → em diagnóstico → aguardando aprovação → em execução → finalizada → entregue."
+    },
+    {
+      "name": "07 · Acesso do cliente",
+      "item": [
+        {
+          "name": "Autenticação",
+          "item": [
+            {
+              "name": "Login por e-mail",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/client/auth/login",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "client",
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{customer_email}}\",\n  \"password\": \"{{client_password}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                      "if (pm.response.code < 300) {",
+                      "  const body = pm.response.json();",
+                      "  pm.collectionVariables.set(\"client_token\", body.access_token);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login por placa",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/client/auth/plate",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "client",
+                    "auth",
+                    "plate"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"plate\": \"{{vehicle_plate}}\",\n  \"document_prefix\": \"{{customer_document_prefix}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                },
+                "description": "Sessão com escopo de um único veículo: placa e os 5 primeiros dígitos do documento."
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set(\"customer_document_prefix\", (pm.collectionVariables.get(\"customer_document\") || \"\").slice(0, 5));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                      "if (pm.response.code < 300) {",
+                      "  const body = pm.response.json();",
+                      "  pm.collectionVariables.set(\"client_token\", body.access_token);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Esqueci a senha",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/client/auth/password/forgot",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "client",
+                    "auth",
+                    "password",
+                    "forgot"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{customer_email}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 202\", () => pm.expect(pm.response.code).to.be.oneOf([202]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Redefinir senha",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/client/auth/password/reset",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "client",
+                    "auth",
+                    "password",
+                    "reset"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{client_reset_token}}\",\n  \"password\": \"NovaSenha@123\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                },
+                "description": "Use o token recebido por e-mail em client_reset_token."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "if (!pm.collectionVariables.get(\"client_reset_token\")) {",
+                      "  pm.test.skip(\"preencha client_reset_token com o token recebido por e-mail\", () => {});",
+                      "} else {",
+                      "  pm.test(\"status 204\", () => pm.response.to.have.status(204));",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            }
+          ],
+          "description": "Rotas públicas com rate limit no Redis (429 ao exceder, 503 sem Redis)."
+        },
+        {
+          "name": "Acompanhamento",
+          "item": [
+            {
+              "name": "Meus veículos",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/client/vehicles",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "client",
+                    "vehicles"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{client_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200 ou 204\", () => pm.expect(pm.response.code).to.be.oneOf([200, 204]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Minhas OS",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/client/work-orders?page=1&per_page=20",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "client",
+                    "work-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1",
+                      "disabled": false
+                    },
+                    {
+                      "key": "per_page",
+                      "value": "20",
+                      "disabled": false
+                    }
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{client_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200 ou 204\", () => pm.expect(pm.response.code).to.be.oneOf([200, 204]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Detalhe da OS",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/client/work-orders/{{work_order_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "client",
+                    "work-orders",
+                    "{{work_order_id}}"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{client_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Aprovar orçamento",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/client/work-orders/{{work_order_id}}/quotes/approve",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "client",
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "quotes",
+                    "approve"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{client_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200 ou 409\", () => pm.expect(pm.response.code).to.be.oneOf([200, 409]));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Rejeitar orçamento",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/client/work-orders/{{work_order_id}}/quotes/reject",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "client",
+                    "work-orders",
+                    "{{work_order_id}}",
+                    "quotes",
+                    "reject"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"note\": \"Prefiro não trocar agora\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{client_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status 200 ou 409\", () => pm.expect(pm.response.code).to.be.oneOf([200, 409]));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ],
+          "description": "Usam client_token. O cliente só enxerga o que está no escopo da própria sessão."
+        }
+      ]
+    },
+    {
+      "name": "99 · Limpeza",
+      "item": [
+        {
+          "name": "Excluir peça",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/parts/{{part_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "parts",
+                "{{part_id}}"
+              ]
+            },
+            "description": "Peça com estoque não pode ser excluída (409)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 204 ou 409\", () => pm.expect(pm.response.code).to.be.oneOf([204, 409]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir serviço",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/services/{{service_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "services",
+                "{{service_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 204\", () => pm.expect(pm.response.code).to.be.oneOf([204]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir veículo",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/vehicles/{{vehicle_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicle_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 204\", () => pm.expect(pm.response.code).to.be.oneOf([204]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir cliente",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers/{{customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "{{customer_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 204\", () => pm.expect(pm.response.code).to.be.oneOf([204]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excluir usuário",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 204\", () => pm.expect(pm.response.code).to.be.oneOf([204]));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Remove os registros criados. Rode por último."
+    }
+  ]
+}

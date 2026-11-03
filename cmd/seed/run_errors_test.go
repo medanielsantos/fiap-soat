@@ -7,6 +7,19 @@ import (
 	"testing"
 )
 
+func TestRunOnlyRunsLocally(t *testing.T) {
+	for _, env := range []string{"", "production", "staging"} {
+		t.Run("APP_ENV="+env, func(t *testing.T) {
+			setSeedEnvironment(t, "postgres://unused/db")
+			t.Setenv("APP_ENV", env)
+			err := run(context.Background(), io.Discard)
+			if err == nil || err.Error() != "seed only runs with APP_ENV=local" {
+				t.Fatalf("err = %v, want local-only error", err)
+			}
+		})
+	}
+}
+
 func TestRunRequiresDatabaseConfiguration(t *testing.T) {
 	setSeedEnvironment(t, "")
 	err := run(context.Background(), io.Discard)
@@ -15,16 +28,12 @@ func TestRunRequiresDatabaseConfiguration(t *testing.T) {
 	}
 }
 
-func TestRunRequiresAdministratorCredentials(t *testing.T) {
-	for _, key := range []string{"ADMIN_NAME", "ADMIN_EMAIL", "ADMIN_PASSWORD"} {
-		t.Run(key, func(t *testing.T) {
-			setSeedEnvironment(t, "postgres://unused/db")
-			t.Setenv(key, "")
-			err := run(context.Background(), io.Discard)
-			if err == nil || err.Error() != "ADMIN_NAME, ADMIN_EMAIL and ADMIN_PASSWORD are required" {
-				t.Fatalf("err = %v, want admin credentials error", err)
-			}
-		})
+func TestRunRequiresSeedPassword(t *testing.T) {
+	setSeedEnvironment(t, "postgres://unused/db")
+	t.Setenv("DEFAULT_PASSWORD_SEED", "")
+	err := run(context.Background(), io.Discard)
+	if err == nil || err.Error() != "DEFAULT_PASSWORD_SEED is required" {
+		t.Fatalf("err = %v, want seed password error", err)
 	}
 }
 
@@ -43,13 +52,13 @@ func TestRunFailsWhenSchemaIsNotMigrated(t *testing.T) {
 	}
 }
 
-func TestRunRejectsInvalidAdministratorDetails(t *testing.T) {
+func TestRunRejectsWeakSeedPassword(t *testing.T) {
 	dsn, db := newSchemaDSN(t, true)
 	setSeedEnvironment(t, dsn)
-	t.Setenv("ADMIN_PASSWORD", "short")
+	t.Setenv("DEFAULT_PASSWORD_SEED", "short")
 
-	if err := run(context.Background(), io.Discard); err == nil || !strings.HasPrefix(err.Error(), "seed administrator:") {
-		t.Fatalf("err = %v, want administrator seed error", err)
+	if err := run(context.Background(), io.Discard); err == nil || !strings.HasPrefix(err.Error(), "seed user admin@oficina.local:") {
+		t.Fatalf("err = %v, want seed user error", err)
 	}
 	var users int
 	if err := db.QueryRow(`SELECT count(*) FROM users`).Scan(&users); err != nil || users != 0 {

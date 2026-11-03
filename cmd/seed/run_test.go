@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestRunCreatesAdministratorOnce(t *testing.T) {
+func TestRunCreatesSeedUsersOnce(t *testing.T) {
 	dsn, db := newSchemaDSN(t, true)
 	setSeedEnvironment(t, dsn)
 
@@ -14,25 +14,41 @@ func TestRunCreatesAdministratorOnce(t *testing.T) {
 	if err := run(context.Background(), &first); err != nil {
 		t.Fatal(err)
 	}
-	if got := first.String(); got != "Initial administrator created.\n" {
-		t.Fatalf("first run output = %q", got)
+	want := "Created admin@oficina.local (admin).\nCreated gerente@oficina.local (manager).\nCreated atendente@oficina.local (attendant).\n"
+	if got := first.String(); got != want {
+		t.Fatalf("first run output = %q, want %q", got, want)
 	}
 
 	var second bytes.Buffer
 	if err := run(context.Background(), &second); err != nil {
 		t.Fatal(err)
 	}
-	if got := second.String(); got != "The user table is already initialized; seed skipped without changes.\n" {
-		t.Fatalf("second run output = %q", got)
+	want = "Skipped admin@oficina.local: already exists.\nSkipped gerente@oficina.local: already exists.\nSkipped atendente@oficina.local: already exists.\n"
+	if got := second.String(); got != want {
+		t.Fatalf("second run output = %q, want %q", got, want)
 	}
 
-	var admins int
-	if err := db.QueryRow(`SELECT count(*) FROM users WHERE email = 'admin@example.com'`).Scan(&admins); err != nil || admins != 1 {
-		t.Fatalf("admin rows = %d, err = %v; want exactly 1", admins, err)
+	rows, err := db.Query(`SELECT u.email, ur.role_id FROM users u JOIN user_roles ur ON ur.user_id = u.id ORDER BY u.email`)
+	if err != nil {
+		t.Fatal(err)
 	}
-	var roles int
-	if err := db.QueryRow(`SELECT count(*) FROM roles`).Scan(&roles); err != nil || roles == 0 {
-		t.Fatalf("roles = %d, err = %v; want seeded roles", roles, err)
+	defer func() { _ = rows.Close() }()
+	got := map[string]string{}
+	for rows.Next() {
+		var email, role string
+		if err := rows.Scan(&email, &role); err != nil {
+			t.Fatal(err)
+		}
+		got[email] = role
+	}
+	expected := map[string]string{"admin@oficina.local": "admin", "gerente@oficina.local": "manager", "atendente@oficina.local": "attendant"}
+	if len(got) != len(expected) {
+		t.Fatalf("users = %v, want %v", got, expected)
+	}
+	for email, role := range expected {
+		if got[email] != role {
+			t.Errorf("%s role = %q, want %q", email, got[email], role)
+		}
 	}
 }
 
@@ -43,7 +59,7 @@ func TestMainSeedsUsingEnvironment(t *testing.T) {
 	main()
 
 	var users int
-	if err := db.QueryRow(`SELECT count(*) FROM users`).Scan(&users); err != nil || users != 1 {
-		t.Fatalf("users = %d, err = %v; want 1", users, err)
+	if err := db.QueryRow(`SELECT count(*) FROM users`).Scan(&users); err != nil || users != 3 {
+		t.Fatalf("users = %d, err = %v; want 3", users, err)
 	}
 }

@@ -54,11 +54,13 @@ A API fica em `http://localhost:8080`. Para parar os serviços sem apagar os dad
 docker compose --env-file .env -f .docker/local/compose.yaml down
 ```
 
+O SonarQube Community Build local fica disponível em `http://localhost:9001` (ou na porta definida por `SONARQUBE_HOST_PORT`). Na primeira execução, o Docker baixa a imagem `sonarqube:community`; os dados ficam em volumes Docker persistentes. Acesse com usuário `admin` e senha `admin`; no primeiro login, o SonarQube solicita a troca da senha. [Credenciais padrão documentadas pelo SonarSource](https://docs.sonarsource.com/sonarqube-community-build/server-installation/from-zip-file/overview).
+
 Também é possível usar `make docker-up` e `make docker-down`. O `.docker/Dockerfile` usa build multistage e executa a imagem final como usuário não root. `.docker/entrypoint.sh` aplica as migrações e inicia a API.
 
 ## Usuários administrativos
 
-- `make seed`: após `make migrate`, popula `roles`, `permissions` e `role_permissions`, e cria o administrador inicial a partir de `ADMIN_NAME`, `ADMIN_EMAIL` e `ADMIN_PASSWORD` em `.env`. Os vínculos ficam nas pivôs `user_roles` e `user_permissions`. A operação não altera usuários existentes.
+- `make seed`: após `make migrate`, popula `roles`, `permissions` e `role_permissions` e cria três usuários de desenvolvimento com a senha de `DEFAULT_PASSWORD_SEED`: `admin@oficina.local` (admin), `gerente@oficina.local` (manager) e `atendente@oficina.local` (attendant). Só roda com `APP_ENV=local`; em qualquer outro ambiente o comando falha. Usuários já existentes são mantidos sem alteração.
 - `POST /api/v1/admin/users`: administrador ou gerente cria usuário; `roles` aceita uma lista de perfis (`admin`, `manager`, `attendant`). Gerentes só podem criar atendentes.
 - `GET /api/v1/admin/users?page=1&per_page=20` e `GET /api/v1/admin/users/{id}`: lista paginada e consulta de usuários.
 - `PATCH /api/v1/admin/users/{id}/status`: altera o status para `active`, `inactive`, `pending`, `suspended`, `banned` ou `deleted`. Somente usuários ativos podem entrar; uma alteração de status bloqueante também invalida o acesso às rotas protegidas imediatamente.

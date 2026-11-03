@@ -29,9 +29,8 @@ services:
       SMTP_FROM: ${SMTP_FROM:-no-reply@oficina.local}
       PASSWORD_RESET_URL: ${PASSWORD_RESET_URL:-http://localhost:3000/redefinir-senha}
       CUSTOMER_PASSWORD_RESET_URL: ${CUSTOMER_PASSWORD_RESET_URL:-http://localhost:3000/redefinir-senha-cliente}
-      ADMIN_NAME: ${ADMIN_NAME:-}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      APP_ENV: ${APP_ENV:-local}
+      DEFAULT_PASSWORD_SEED: ${DEFAULT_PASSWORD_SEED:-}
     ports:
       - "${APP_HTTP_HOST_PORT:-8080}:8080"
     depends_on:
@@ -59,7 +58,7 @@ services:
     ports:
       - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
-      - ../postgres/data:/var/lib/postgresql/data
+      - ../postgres:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
@@ -89,3 +88,20 @@ services:
       retries: 10
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-local-redis-password}
+
+  sonarqube:
+    image: sonarqube:community
+    restart: unless-stopped
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    ports:
+      - "127.0.0.1:${SONARQUBE_HOST_PORT:-9001}:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+
+volumes:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:

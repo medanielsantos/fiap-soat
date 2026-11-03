@@ -64,7 +64,7 @@ func setSeedEnvironment(t *testing.T, dsn string) {
 	t.Helper()
 	for key, value := range map[string]string{
 		"DATABASE_URL": dsn, "DB_NAME": "", "DB_USER": "",
-		"ADMIN_NAME": "Administrator", "ADMIN_EMAIL": "admin@example.com", "ADMIN_PASSWORD": "a-strong-password",
+		"APP_ENV": "local", "DEFAULT_PASSWORD_SEED": "password@2026",
 	} {
 		t.Setenv(key, value)
 	}

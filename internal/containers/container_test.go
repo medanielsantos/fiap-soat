@@ -47,6 +47,7 @@ func TestNewSurfacesConstructorErrorsOnInvoke(t *testing.T) {
 		{"invalid redis url", "REDIS_URL", "http://not-redis", "parse REDIS_URL"},
 		{"short jwt secret", "JWT_SECRET", "short", "JWT_SECRET must contain at least 32 bytes"},
 		{"missing database", "DATABASE_URL", "", "DATABASE_URL is required"},
+		{"unknown app env", "APP_ENV", "dev", "invalid APP_ENV"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
