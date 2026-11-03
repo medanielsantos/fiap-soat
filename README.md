@@ -54,6 +54,8 @@ A API fica em `http://localhost:8080`. Para parar os serviços sem apagar os dad
 docker compose --env-file .env -f .docker/local/compose.yaml down
 ```
 
+O SonarQube Community Build local fica disponível em `http://localhost:9001` (ou na porta definida por `SONARQUBE_HOST_PORT`). Na primeira execução, o Docker baixa a imagem `sonarqube:community`; os dados ficam em volumes Docker persistentes. Acesse com usuário `admin` e senha `admin`; no primeiro login, o SonarQube solicita a troca da senha. [Credenciais padrão documentadas pelo SonarSource](https://docs.sonarsource.com/sonarqube-community-build/server-installation/from-zip-file/overview).
+
 Também é possível usar `make docker-up` e `make docker-down`. O `.docker/Dockerfile` usa build multistage e executa a imagem final como usuário não root. `.docker/entrypoint.sh` aplica as migrações e inicia a API.
 
 ## Usuários administrativos
